@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "safestreet-pipeline"
+version = "0.1.0"
+description = "Spatial intelligence pipeline for nighttime urban vulnerability analysis"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "kfrural" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "pandas>=2.0",
+    "geopandas>=0.14",
+    "numpy>=1.24",
+    "psycopg2-binary>=2.9",
+    "sqlalchemy>=2.0",
+    "osmnx>=1.8",
+    "h3>=3.7",
+    "h3-pandas>=0.2",
+    "pysal>=2.10",
+    "libpysal>=4.10",
+    "esda>=2.5",
+    "streamlit>=1.28",
+    "pydeck>=0.8",
+    "folium>=0.15",
+    "python-dotenv>=1.0",
+    "loguru>=0.7",
+    "pydantic>=2.0",
+    "shapely>=2.0",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "pytest-mock>=3.12",
+    "black>=23.12",
+    "ruff>=0.1",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+    "ipykernel>=6.28",
+    "ipython>=8.20",
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "jupyter>=1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "SIM", "PL"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "**/__init__.py"]

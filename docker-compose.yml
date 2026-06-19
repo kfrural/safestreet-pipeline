@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: safestreet-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-safestreet}
+      POSTGRES_USER: ${POSTGRES_USER:-safestreet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safestreet_pass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safestreet -d safestreet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safestreet_net
+
+  pipeline:
+    build: .
+    container_name: safestreet-pipeline
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-safestreet}
+      POSTGRES_USER: ${POSTGRES_USER:-safestreet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safestreet_pass}
+    volumes:
+      - ./data:/app/data
+    command: ["python", "-m", "src.pipeline_etl"]
+    networks:
+      - safestreet_net
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safestreet-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-safestreet}
+      POSTGRES_USER: ${POSTGRES_USER:-safestreet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safestreet_pass}
+    command: ["streamlit", "run", "src/dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    networks:
+      - safestreet_net
+
+volumes:
+  postgis_data:
+
+networks:
+  safestreet_net:
+    driver: bridge
