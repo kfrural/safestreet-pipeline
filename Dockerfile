@@ -21,6 +21,6 @@ COPY src/ ./src/
 COPY pyproject.toml .
 COPY data/ ./data/
 
-RUN pip install -e .
+ENV PYTHONPATH=/app
 
 CMD ["python", "-m", "src.pipeline_etl"]

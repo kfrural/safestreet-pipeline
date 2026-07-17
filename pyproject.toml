@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "safestreet-pipeline"
@@ -29,9 +29,9 @@ dependencies = [
     "numpy>=1.24",
     "psycopg2-binary>=2.9",
     "sqlalchemy>=2.0",
+    "geoalchemy2>=0.14",
     "osmnx>=1.8",
     "h3>=3.7",
-    "h3-pandas>=0.2",
     "pysal>=2.10",
     "libpysal>=4.10",
     "esda>=2.5",
@@ -41,8 +41,10 @@ dependencies = [
     "python-dotenv>=1.0",
     "loguru>=0.7",
     "pydantic>=2.0",
+    "pydantic-settings>=2.1",
     "shapely>=2.0",
     "tqdm>=4.66",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
