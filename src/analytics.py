@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from esda import Moran, Moran_Local
-from libpysal.weights import Queen, W
+from libpysal.weights import W
 from loguru import logger
 
 
@@ -67,7 +67,7 @@ def build_spatial_weights(
     gdf: pd.DataFrame,
     h3_column: str = "h3_index",
 ) -> W | None:
-    from h3 import h3_k_ring
+    import h3
 
     h3_indices = gdf[h3_column].tolist()
     index_map = {idx: i for i, idx in enumerate(h3_indices)}
@@ -77,18 +77,16 @@ def build_spatial_weights(
     for idx in h3_indices:
         i = index_map[idx]
         try:
-            ring = h3_k_ring(idx, 1)
+            ring = h3.grid_disk(idx, 1)
             for neighbor in ring:
                 if neighbor in index_map and neighbor != idx:
                     neighbors[i].add(index_map[neighbor])
         except Exception:
             continue
 
-    non_isolated = {k: v for k, v in neighbors.items() if v}
-    if not non_isolated:
+    any_neighbors = {k: v for k, v in neighbors.items() if v}
+    if not any_neighbors:
         logger.warning("Nenhuma vizinhança encontrada para construção de pesos")
         return None
 
-    return Queen.from_adjacency(
-        {str(k): [str(n) for n in v] for k, v in non_isolated.items()}
-    )
+    return W(neighbors)

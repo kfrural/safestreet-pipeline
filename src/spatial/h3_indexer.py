@@ -1,30 +1,27 @@
 from __future__ import annotations
 
 import h3
-import h3.api.basic_str as h3_basic
 import numpy as np
 from geopandas import GeoDataFrame
-from loguru as logger
+from loguru import logger
 from shapely.geometry import Point
 
 
 def geo_to_h3(lat: float, lon: float, resolution: int = 9) -> str:
-    return h3_basic.geo_to_h3(lat, lon, resolution)
+    return h3.latlng_to_cell(lat, lon, resolution)
 
 
 def add_h3_column(gdf: GeoDataFrame, resolution: int = 9) -> GeoDataFrame:
-    logger.info("Indexando {} geometrias com H3 resolução {}", len(gdf), resolution)
+    logger.info("Indexando {} geometrias com H3 resolucao {}", len(gdf), resolution)
     gdf = gdf.copy()
     gdf["h3_index"] = gdf.geometry.apply(
-        lambda geom: geo_to_h3(geom.y, geom.x, resolution)
-        if isinstance(geom, Point)
-        else None
+        lambda geom: geo_to_h3(geom.y, geom.x, resolution) if isinstance(geom, Point) else None
     )
     return gdf
 
 
 def h3_to_polygon(h3_index: str) -> list[tuple[float, float]]:
-    boundary = h3_basic.h3_to_geo_boundary(h3_index)
+    boundary = h3.cell_to_boundary(h3_index)
     return [(lng, lat) for lat, lng in boundary]
 
 
@@ -45,5 +42,5 @@ def create_h3_grid(
             h3_index = geo_to_h3(lat, lon, resolution)
             hex_set.add(h3_index)
 
-    logger.info("Grid H3 gerado: {} células na resolução {}", len(hex_set), resolution)
+    logger.info("Grid H3 gerado: {} celulas na resolucao {}", len(hex_set), resolution)
     return list(hex_set)
