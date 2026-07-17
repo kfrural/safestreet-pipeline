@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -15,34 +16,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # PostGIS
     postgres_host: str = Field("localhost", alias="POSTGRES_HOST")
     postgres_port: int = Field(5432, alias="POSTGRES_PORT")
     postgres_db: str = Field("safestreet", alias="POSTGRES_DB")
     postgres_user: str = Field("safestreet", alias="POSTGRES_USER")
     postgres_password: str = Field("safestreet_pass", alias="POSTGRES_PASSWORD")
 
-    # OSM
     overpass_api_url: str = Field(
         "https://overpass-api.de/api/interpreter",
         alias="OVERPASS_API_URL",
     )
-    osm_city_name: str = Field("Recife, Brazil", alias="OSM_CITY_NAME")
 
-    # Pipeline
-    pipeline_crime_file: Path = Field(
-        Path("data/raw/crime_records.csv"),
-        alias="PIPELINE_CRIME_FILE",
-    )
     pipeline_output_dir: Path = Field(
         Path("data/processed"),
         alias="PIPELINE_OUTPUT_DIR",
     )
     h3_resolution: int = Field(9, alias="H3_RESOLUTION", ge=0, le=15)
 
-    # Dashboard
     dashboard_title: str = Field(
-        "SafeStreet - Análise de Vulnerabilidade Urbana Noturna",
+        "SafeStreet - Analise de Vulnerabilidade Urbana Noturna",
         alias="DASHBOARD_TITLE",
     )
     dashboard_theme: Literal["dark", "light"] = Field(
@@ -57,10 +49,69 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    @field_validator("pipeline_crime_file", "pipeline_output_dir", mode="before")
+    @field_validator("pipeline_output_dir", mode="before")
     @classmethod
     def resolve_path(cls, v: str) -> Path:
         return Path(v).resolve()
 
 
 settings = Settings()
+
+
+@dataclass
+class CityConfig:
+    name: str
+    state: str
+    osm_name: str
+    center_lat: float
+    center_lon: float
+    zoom_start: int = 12
+    bbox_lat_min: float = 0.0
+    bbox_lat_max: float = 0.0
+    bbox_lon_min: float = 0.0
+    bbox_lon_max: float = 0.0
+    data_source: str = ""
+    crime_file_pattern: str = ""
+
+
+CITIES: dict[str, CityConfig] = {
+    "recife": CityConfig(
+        name="Recife",
+        state="PE",
+        osm_name="Recife, Brazil",
+        center_lat=-8.0476,
+        center_lon=-34.8770,
+        zoom_start=12,
+        bbox_lat_min=-8.15,
+        bbox_lat_max=-7.90,
+        bbox_lon_min=-35.05,
+        bbox_lon_max=-34.75,
+        data_source="cttu",
+        crime_file_pattern="acidentes_transito_recife_{year}.csv",
+    ),
+    "sao-paulo": CityConfig(
+        name="Sao Paulo",
+        state="SP",
+        osm_name="Sao Paulo, Brazil",
+        center_lat=-23.5505,
+        center_lon=-46.6333,
+        zoom_start=11,
+        bbox_lat_min=-23.85,
+        bbox_lat_max=-23.30,
+        bbox_lon_min=-46.90,
+        bbox_lon_max=-46.30,
+        data_source="ssp_sp",
+        crime_file_pattern="ssp_sp_{year}.xlsx",
+    ),
+}
+
+
+def get_city(city_key: str) -> CityConfig:
+    if city_key not in CITIES:
+        available = ", ".join(CITIES.keys())
+        raise ValueError(f"Cidade '{city_key}' nao encontrada. Disponiveis: {available}")
+    return CITIES[city_key]
+
+
+def list_cities() -> list[str]:
+    return list(CITIES.keys())

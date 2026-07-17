@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import time
-from typing import Any
 
 import pandas as pd
 from geopandas import GeoDataFrame
 from shapely.geometry.base import BaseGeometry
-
 
 NIGHT_START = time(18, 0)
 NIGHT_END = time(6, 0)
@@ -20,14 +18,38 @@ VALID_CRIME_NATURES: set[str] = {
     "furto de veículo",
 }
 
+VALID_ACCIDENT_NATURES: set[str] = {
+    "com vítima",
+    "com vitima",
+}
 
-def is_nighttime(occurrence_time: time) -> bool:
+VALID_ACCIDENT_TYPES: set[str] = {
+    "colisão",
+    "colisao",
+    "atropelamento",
+    "capotamento",
+    "colisão frontal",
+    "colisao frontal",
+    "colisão lateral",
+    "colisao lateral",
+    "colisão traseira",
+    "colisao traseira",
+    "queda de motocicleta",
+    "saida de pista",
+    "saída de pista",
+}
+
+
+def is_nighttime(occurrence_time) -> bool:
+    if occurrence_time is None or pd.isna(occurrence_time):
+        return False
     return occurrence_time >= NIGHT_START or occurrence_time < NIGHT_END
 
 
 def filter_nighttime_crimes(df: pd.DataFrame, time_column: str) -> pd.DataFrame:
     df = df.copy()
-    df[time_column] = pd.to_datetime(df[time_column], format="%H:%M", errors="coerce").dt.time
+    dt = pd.to_datetime(df[time_column], format="%H:%M", errors="coerce")
+    df[time_column] = dt.dt.time
     mask = df[time_column].apply(is_nighttime)
     return df.loc[mask].reset_index(drop=True)
 
@@ -65,7 +87,6 @@ def validate_schema(df: pd.DataFrame, expected_schema: dict[str, type]) -> list[
             errors.append(f"Coluna obrigatória '{col}' não encontrada.")
         elif not pd.api.types.is_dtype_equal(df[col].dtype, dtype):
             errors.append(
-                f"Coluna '{col}': esperado {dtype.__name__}, "
-                f"obtido {df[col].dtype.name}."
+                f"Coluna '{col}': esperado {dtype.__name__}, obtido {df[col].dtype.name}."
             )
     return errors
