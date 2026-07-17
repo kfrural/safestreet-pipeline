@@ -14,7 +14,7 @@ def fetch_lighting_infrastructure(
     if tags is None:
         tags = {"highway": "street_lamp"}
     logger.info("Buscando pontos de iluminação em '{}'", city_name)
-    gdf = ox.geometries_from_place(city_name, tags=tags)
+    gdf = ox.features_from_place(city_name, tags=tags)
     logger.info("Encontradas {} geometrias de iluminação", len(gdf))
     return gdf
 
@@ -22,7 +22,7 @@ def fetch_lighting_infrastructure(
 def fetch_public_transport_stops(city_name: str) -> GeoDataFrame:
     tags = {"highway": "bus_stop", "public_transport": "stop_position"}
     logger.info("Buscando paradas de transporte público em '{}'", city_name)
-    gdf = ox.geometries_from_place(city_name, tags=tags)
+    gdf = ox.features_from_place(city_name, tags=tags)
     logger.info("Encontradas {} paradas de transporte", len(gdf))
     return gdf
 

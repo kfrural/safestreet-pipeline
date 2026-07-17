@@ -31,7 +31,9 @@ def setup_logger(
         log_path.parent.mkdir(parents=True, exist_ok=True)
         logger.add(
             str(log_path),
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+            format=(
+                "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+            ),
             level="DEBUG",
             rotation=rotation,
             retention=retention,
