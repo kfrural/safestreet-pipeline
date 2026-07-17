@@ -66,3 +66,4 @@ logs/
 # Misc
 *.sqlite3
 credentials.json
+cache/
