@@ -30,26 +30,8 @@ def sample_crime_data() -> pd.DataFrame:
                 ]
             ),
             "horario": ["22:30", "03:15", "14:00", "20:00", "10:00"],
-            "latitude": [-8.05, -8.06, -8.07, -8.08, -8.09],
-            "longitude": [-34.88, -34.89, -34.90, -34.91, -34.92],
-        }
-    )
-
-
-@pytest.fixture
-def sample_accident_data() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "Protocolo": ["1001", "1002", "1003", "1004", "1005"],
-            "data": ["2024-06-01", "2024-06-02", "2024-06-03", "2024-06-04", "2024-06-05"],
-            "hora": ["22:30:00", "03:15:00", "14:00:00", "20:00:00", "10:00:00"],
-            "natureza": ["COM VITIMA", "COM VITIMA", "SEM VITIMA", "COM VITIMA", "SEM VITIMA"],
-            "bairro": ["BOA VIAGEM", "ARRUDA", "CASA AMARELA", "BOA VIAGEM", "AFLITOS"],
-            "tipo": ["COLISAO", "ATROPELAMENTO", "COLISAO", "COLISAO LATERAL", "COLISAO"],
-            "vitimas": ["1,0", "2,0", "0,0", "1,0", "0,0"],
-            "vitimasfatais": ["0,0", "0,0", "0,0", "0,0", "0,0"],
-            "latitude": [-8.05, -8.06, None, -8.08, -8.09],
-            "longitude": [-34.88, -34.89, None, -34.91, -34.92],
+            "latitude": [-23.55, -23.56, -23.57, -23.58, -23.59],
+            "longitude": [-46.63, -46.64, -46.65, -46.66, -46.67],
         }
     )
 
@@ -63,9 +45,9 @@ def sample_geodataframe() -> GeoDataFrame:
             "h3_index": ["89a1b2c3d4e5fff", "89a1b2c3d4e6fff", "89a1b2c3d4e7fff"],
         },
         geometry=[
-            Point(-34.88, -8.05),
-            Point(-34.89, -8.06),
-            Point(-34.90, -8.07),
+            Point(-46.63, -23.55),
+            Point(-46.64, -23.56),
+            Point(-46.65, -23.57),
         ],
         crs="EPSG:4326",
     )
