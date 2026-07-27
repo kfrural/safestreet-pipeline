@@ -31,6 +31,10 @@ class Settings(BaseSettings):
         Path("data/processed"),
         alias="PIPELINE_OUTPUT_DIR",
     )
+    external_data_dir: Path = Field(
+        Path("data/external"),
+        alias="EXTERNAL_DATA_DIR",
+    )
     h3_resolution: int = Field(9, alias="H3_RESOLUTION", ge=0, le=15)
 
     dashboard_title: str = Field(
@@ -75,20 +79,6 @@ class CityConfig:
 
 
 CITIES: dict[str, CityConfig] = {
-    "recife": CityConfig(
-        name="Recife",
-        state="PE",
-        osm_name="Recife, Brazil",
-        center_lat=-8.0476,
-        center_lon=-34.8770,
-        zoom_start=12,
-        bbox_lat_min=-8.15,
-        bbox_lat_max=-7.90,
-        bbox_lon_min=-35.05,
-        bbox_lon_max=-34.75,
-        data_source="cttu",
-        crime_file_pattern="acidentes_transito_recife_{year}.csv",
-    ),
     "sao-paulo": CityConfig(
         name="Sao Paulo",
         state="SP",
