@@ -97,7 +97,7 @@ def _fetch_sidra_national(
     period: str = "last",
     classifications: str | None = None,
 ) -> list[dict]:
-    parts = [f"t/{table}", "n1/0", f"v/{variables}", f"p/{period}"]
+    parts = [f"t/{table}", "n1/all", f"v/{variables}", f"p/{period}"]
     if classifications:
         parts.append(classifications)
     url = f"{SIDRA_BASE}/{'/'.join(parts)}"
@@ -216,27 +216,40 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
 
 def compute_ibge_summary(indicators: dict) -> dict:
-    summary = {
+    summary: dict = {
         "municipio": "Sao Paulo (SP)",
         "codigo_ibge": SAO_PAULO_IBGE,
     }
 
     if "population" in indicators and indicators["population"]:
-        pop = indicators["population"][0]
-        summary["populacao_2022"] = pop.get("Populacao residente", pop.get("V", ""))
-        summary["area_km2"] = pop.get("Area da unidade territorial (quilometros quadrados)", "")
-        summary["densidade_demografica"] = pop.get(
-            "Densidade demografica (habitante por kilometro quadrado)", ""
-        )
+        for item in indicators["population"]:
+            var = item.get("Variável", item.get("Variavel", ""))
+            val = item.get("Valor", "")
+            var_l = var.lower()
+            if "resid" in var_l:
+                summary["populacao_2022"] = val
+            elif "densidade" in var_l:
+                summary["densidade_demografica"] = val
+            elif "rea" in var_l or "quil" in var_l:
+                summary["area_km2"] = val
 
     if "literacy" in indicators and indicators["literacy"]:
-        lit = indicators["literacy"][0]
-        summary["taxa_alfabetizacao_15plus"] = lit.get("Taxa de alfabetizacao", "")
+        for item in indicators["literacy"]:
+            var = item.get("Variável", item.get("Variavel", ""))
+            val = item.get("Valor", "")
+            if "alfabetiza" in var.lower():
+                summary["taxa_alfabetizacao_15plus"] = val
 
     if "households" in indicators and indicators["households"]:
         hh = indicators["households"][0]
-        summary["domicilios_2010"] = hh.get("Domicilios particulares permanentes", "")
-        summary["moradores_2010"] = hh.get("Moradores em domicilios particulares permanentes", "")
+        summary["domicilios_2010"] = hh.get(
+            "Domicílios particulares permanentes",
+            hh.get("Domicilios particulares permanentes", ""),
+        )
+        summary["moradores_2010"] = hh.get(
+            "Moradores em domicílios particulares permanentes",
+            hh.get("Moradores em domicilios particulares permanentes", ""),
+        )
 
     if "population_estimate" in indicators["population_estimate"]:
         estimates = indicators["population_estimate"]
@@ -303,16 +316,25 @@ def compute_national_summary(indicators: dict) -> dict:
     summary: dict = {}
 
     if "population" in indicators and indicators["population"]:
-        pop = indicators["population"][0]
-        summary["populacao"] = pop.get("Populacao residente", pop.get("V", ""))
-        summary["area_km2"] = pop.get("Area da unidade territorial (quilometros quadrados)", "")
-        summary["densidade"] = pop.get(
-            "Densidade demografica (habitante por kilometro quadrado)", ""
-        )
+        for item in indicators["population"]:
+            var = item.get("Variável", item.get("Variavel", ""))
+            val = item.get("Valor", "")
+            var_l = var.lower()
+            if "resid" in var_l:
+                summary["populacao"] = val
+            elif "densidade" in var_l:
+                summary["densidade"] = val
+            elif "re" in var_l and "quil" not in var_l and "habit" not in var_l:
+                pass
+            elif "rea" in var_l or "quil" in var_l:
+                summary["area_km2"] = val
 
     if "literacy" in indicators and indicators["literacy"]:
-        lit = indicators["literacy"][0]
-        summary["taxa_alfabetizacao"] = lit.get("Taxa de alfabetizacao", "")
+        for item in indicators["literacy"]:
+            var = item.get("Variável", item.get("Variavel", ""))
+            val = item.get("Valor", "")
+            if "alfabetiza" in var.lower():
+                summary["taxa_alfabetizacao"] = val
 
     return summary
 
