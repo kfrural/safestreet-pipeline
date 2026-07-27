@@ -9,7 +9,7 @@ from src.pipeline_etl import run_pipeline
 from src.utils.logger import setup_logger
 
 
-def run_geo_processing(city_key: str = "recife", crime_file: Path | None = None) -> None:
+def run_geo_processing(city_key: str = "sao-paulo", crime_file: Path | None = None) -> None:
     logger.info("=" * 60)
     logger.info("SafeStreet - Modulo de Processamento Geoespacial")
     logger.info("=" * 60)
@@ -22,7 +22,7 @@ def run_geo_processing(city_key: str = "recife", crime_file: Path | None = None)
 
 if __name__ == "__main__":
     setup_logger(level="DEBUG" if "--debug" in sys.argv else "INFO")
-    city = "recife"
+    city = "sao-paulo"
     crime_file = None
     args = sys.argv[1:]
     for i, arg in enumerate(args):

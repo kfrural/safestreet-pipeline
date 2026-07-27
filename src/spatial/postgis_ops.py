@@ -150,55 +150,53 @@ def calculate_nearest_infra_distance(city: str) -> None:
 
 
 def calculate_vulnerability_score(city: str) -> None:
+    from src.analytics.statistics import compute_pca_vulnerability
+
     query = text("""
-        WITH stats AS (
-            SELECT
-                MAX(crime_count) AS max_crime,
-                MAX(CASE
-                    WHEN lighting_density > 0
-                    THEN lighting_density ELSE 0
-                END) AS max_lighting,
-                MAX(CASE
-                    WHEN bus_stop_density > 0
-                    THEN bus_stop_density ELSE 0
-                END) AS max_bus,
-                MAX(CASE
-                    WHEN metro_density > 0
-                    THEN metro_density ELSE 0
-                END) AS max_metro
-            FROM safestreet.h3_cells
-            WHERE city = :city AND crime_count > 0
-        )
-        UPDATE safestreet.h3_cells h
-        SET vulnerability_score = (
-            SELECT
-                CASE
-                    WHEN s.max_crime = 0 THEN 0
-                    ELSE GREATEST(0, LEAST(1,
-                        (h.crime_count::float / s.max_crime) *
-                        (1.0 - LEAST(
-                            COALESCE(h.lighting_density, 0)
-                            / GREATEST(s.max_lighting, 0.001),
-                            1.0
-                        )) *
-                        (1.0 / (1.0
-                            + COALESCE(h.dist_nearest_lit, 1000)
-                            / 1000.0)) *
-                        (1.0 / (1.0
-                            + COALESCE(h.dist_nearest_bus, 500)
-                            / 500.0)) *
-                        (1.0 / (1.0
-                            + COALESCE(h.dist_nearest_metro, 2000)
-                            / 2000.0))
-                    ))
-                END
-            FROM stats s
-        )
-        WHERE h.city = :city AND h.crime_count > 0
+        SELECT h3_index, city, crime_count, lighting_density,
+               dist_nearest_lit, bus_stop_density, metro_density,
+               camera_count, nightlife_density
+        FROM safestreet.h3_cells
+        WHERE city = :city AND crime_count > 0
     """)
     with get_connection() as conn:
-        conn.execute(query, {"city": city})
-    logger.info("Score de vulnerabilidade calculado para {}", city)
+        result = conn.execute(query, {"city": city}).mappings().all()
+
+    if not result:
+        logger.warning("Nenhuma celula H3 com dados para PCA em {}", city)
+        return
+
+    df = pd.DataFrame([dict(r) for r in result])
+    pca_result = compute_pca_vulnerability(df)
+
+    if pca_result["scores"].empty:
+        logger.warning("PCA nao retornou scores para {}", city)
+        return
+
+    df["vulnerability_score"] = pca_result["scores"].values
+
+    with get_connection() as conn:
+        for _, row in df.iterrows():
+            conn.execute(
+                text(
+                    "UPDATE safestreet.h3_cells "
+                    "SET vulnerability_score = :score "
+                    "WHERE h3_index = :h3 AND city = :city"
+                ),
+                {
+                    "score": float(row["vulnerability_score"]),
+                    "h3": row["h3_index"],
+                    "city": city,
+                },
+            )
+
+    logger.info(
+        "Score de vulnerabilidade PCA calculado para {} | "
+        "PC1 explica {:.1f}% da variancia | loadings: {}",
+        city,
+        pca_result["variance_explained"][0] * 100 if pca_result["variance_explained"] else 0,
+        pca_result["loadings"],
+    )
 
 
 def calculate_moran_clusters(city: str) -> None:

@@ -19,7 +19,7 @@ class CrimeRecord(Base):
     crime_category = Column(String(50), nullable=True)
     date = Column(DateTime, nullable=True)
     time = Column(String(5), nullable=True)
-    city = Column(String(50), nullable=False, default="recife")
+    city = Column(String(50), nullable=False, default="sao-paulo")
     neighborhood = Column(String(100), nullable=True)
     geometry = Column(Geometry("POINT", srid=4326), nullable=False)
     h3_index = Column(String(20), nullable=True)
@@ -32,7 +32,7 @@ class InfrastructurePoint(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     osm_id = Column(String(80), unique=True, nullable=True)
     infra_type = Column(String(50), nullable=False)
-    city = Column(String(50), nullable=False, default="recife")
+    city = Column(String(50), nullable=False, default="sao-paulo")
     geometry = Column(Geometry("POINT", srid=4326), nullable=False)
     h3_index = Column(String(20), nullable=True)
 
@@ -43,7 +43,7 @@ class H3Cell(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     h3_index = Column(String(20), nullable=False)
-    city = Column(String(50), nullable=False, default="recife")
+    city = Column(String(50), nullable=False, default="sao-paulo")
     resolution = Column(Integer, nullable=False)
     crime_count = Column(Integer, default=0)
     lighting_density = Column(Float, default=0.0)
