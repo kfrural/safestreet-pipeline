@@ -1,111 +1,235 @@
-# SafeStreet: Pipeline de Inteligência Espacial e Análise de Vulnerabilidade Urbana Noturna
+# SafeStreet: Spatial Intelligence Pipeline & Urban Nighttime Vulnerability Analysis
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-PostGIS-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgis.net/)
+[![CI](https://github.com/kfrural/safestreet-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/kfrural/safestreet-pipeline/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![PostGIS](https://img.shields.io/badge/PostgreSQL-PostGIS-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgis.net/)
 [![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Uber H3](https://img.shields.io/badge/Spatial--Index-Uber%20H3-000000?style=flat-square)](https://h3geo.org/)
-[![Docker](https://img.shields.io/badge/Docker-Container-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-O **SafeStreet** é uma plataforma analítica *end-to-end* que funde Engenharia de Dados Espaciais, Bancos Geográficos e Data Science para responder a um desafio crítico de segurança: **A infraestrutura urbana atua como um fator inibidor ou facilitador do crime noturno?** Unindo os registros de Secretarias de Segurança Pública à malha colaborativa do OpenStreetMap, o ecossistema isola a criminalidade sob a cobertura da noite e valida matematicamente a correlação entre a falta de iluminação pública e zonas de alto risco (hotspots).
-
----
-
-## Arquitetura do Pipeline de Dados
-
-O ecossistema foi projetado de forma modular seguindo as melhores práticas de engenharia de software e processamento distribuído de dados geográficos:
-
-```mermaid
-graph TD
-    A[Bases de Segurança Pública .csv/.xlsx] -->|Filtro Temporal Noturno 18h-06h| C[Pipeline de ETL - Python]
-    B[OpenStreetMap API Overpass] -->|Geometrias de Infraestrutura| C
-    C -->|Carga de Geometrias Primitivas| D[(PostgreSQL + PostGIS)]
-    D -->|Queries Indexadas GiST| E[Módulo Core: GeoProcessing]
-    E -->|Indexação Uber H3 & Agregação| F[Módulo Analytics: PySAL]
-    F -->|Cálculo do Índice de Moran Local| G[Camada de Entrega: Streamlit App]
-
-```
+**SafeStreet** is an end-to-end spatial intelligence platform that fuses Geographic Data Engineering, Spatial Databases and Data Science to answer a critical safety question: **Does urban infrastructure act as an inhibitor or facilitator of nighttime crime?** By merging SSP-SP crime records (2013-2022) with OpenStreetMap infrastructure and official street lighting data from the City of Sao Paulo, the ecosystem isolates nighttime criminality and statistically validates the correlation between infrastructure gaps and high-risk zones.
 
 ---
 
-##  Por Que Este Projeto Existe? (O Problema de Negócio)
+## Data Sources
 
-Mapeamentos de criminalidade convencionais limitam-se a gerar mapas de calor estáticos (*Kernel Density Estimation - KDE*) que respondem apenas *onde* o crime ocorreu. Essa abordagem ignora o ambiente urbano ao redor, impedindo ações preventivas estruturais.
-
-O **SafeStreet** muda esse paradigma ao transformar mapas descritivos em **ferramentas prescritivas de otimização de recursos**. Em vez de distribuir postes de luz ou patrulhamento de forma homogênea e ineficiente, o algoritmo quantifica e aponta com precisão cirúrgica quais células geográficas geram o maior retorno sobre o investimento (ROI) em segurança e infraestrutura para *Smart Cities*.
-
----
-
-##  Engenharia de Recursos & Detalhamento Técnico
-
-### 1. Ingestão e Tratamento de Dados (ETL)
-
-* **Isolamento Temporal Rígido:** Filtragem automatizada para capturar apenas delitos ocorridos no intervalo das **18h00 às 06h00**.
-* **Segmentação por Natureza:** Expansão e limpeza de registros mantendo exclusivamente crimes patrimoniais de rua (roubos e furtos a pedestres), descartando ocorrências que não sofrem influência direta de variáveis físicas de visibilidade (ex: estelionato, violência doméstica).
-* **Extração via Grafos do OSM:** Uso da biblioteca `OSMnx` para consultar pontos de iluminação (`highway=lighting`, `lit=yes`) mapeados, além de nós de transporte público (paradas de ônibus e metrô) como pontos de atração de fluxo de pedestres.
-
-### 2. Armazenamento Geográfico e Performance
-
-* **Modelagem PostGIS:** Estruturação de dados utilizando tipos geométricos nativos (`GEOMETRY(Point, 4326)`).
-* **Indexação GiST (Generalized Search Tree):** Implementação de índices espaciais essenciais para otimizar operações de intersecção, buffers e junções espaciais (*Spatial Joins*), reduzindo o tempo de consulta de milhões de registros para milissegundos.
-
-### 3. Modelagem de Discretização Espacial (Uber H3)
-
-Para mitigar a falácia ecológica e o **Problema da Unidade de Área Modificável (MAUP)** causado por divisões políticas tradicionais (bairros), adotou-se o sistema de indexação geoespacial hexagonal **H3 da Uber** (Resolução 9, tamanho aproximado de quarteirões urbanos).
-
-* **Agregação Uniforme:** Todas as ocorrências e pontos de infraestrutura são indexados por um ID hexadecimal único e computados de forma homogênea.
-
-### 4. Análise Estatística Espacial (Data Science Core)
-
-A validação científica da hipótese de dependência espacial utiliza a biblioteca `PySAL`:
-
-* **Índice de Moran Global:** Teste estatístico para rejeitar a hipótese nula de aleatoriedade espacial ($p\text{-value} < 0.05$).
-* **Índice de Moran Local (LISA):** Classificação das células hexagonais em quadrantes de associação espacial. O foco reside nas zonas **Alto-Alto** (alta densidade de crimes cercada por áreas de alta criminalidade com severo déficit de infraestrutura luminosa).
+| Source | Type | Granularity | License |
+|--------|------|-------------|---------|
+| **SSP-SP** via labcidade/boletins-ssp + SPSafe (Zenodo) | Nighttime crime records | Point (neighborhood + coordinates) | Public |
+| **GeoSampa / SP Regula** (WFS) | Official public lighting | ~97k points | Public |
+| **OpenStreetMap** (Overpass API) | Bus stops, metro, cameras, nightlife, transit schedules, cultural venues | Point | ODbL |
+| **IBGE SIDRA API** | Socioeconomic indicators (Census 2022), income per capita | Municipal | Public |
+| **Open-Meteo Archive API** | Historical weather data | Daily | Free |
+| **RSS News Feeds** | Security sentiment analysis (Folha, G1) | Headlines | Public |
 
 ---
 
-##  Como Executar o Projeto
+## Analysis Pipeline
 
-### Pré-requisitos
+### Data Ingestion (Fases 1 & 6)
+1. **Ingest** SSP-SP crime records (2013-2019 labcity, 2020-2022 SPSafe/Zenodo)
+2. **Classify** crimes by severity (Violencia, Roubo/Furto, Trafico/Armas, Outros)
+3. **Extract** urban infrastructure: lighting, bus stops, metro, cameras, nightlife (OSM)
+4. **Integrate** official GeoSampa lighting (~97k points via WFS)
+5. **Fetch** socioeconomic indicators IBGE (Census 2022)
+6. **Fetch** income per capita data (IBGE SIDRA table 10295)
+7. **Fetch** historical weather data (Open-Meteo API)
+8. **Analyze** nighttime transit via OSM opening_hours parsing
+9. **Catalog** cultural venues as proximity/cluster proxy (OSM)
+10. **Analyze** news sentiment via RSS + keyword-based NLP
 
-* Docker e Docker Compose instalados.
-* Python 3.9 ou superior.
+### Analytics (Fases 2 & 5)
+11. **Index** occurrences into hexagonal cells (Uber H3 Resolution 9)
+12. **Calculate** vulnerability scores via PCA
+13. **Validate** spatial dependence via Global and Local Moran's I (LISA)
+14. **Train** predictive models (Random Forest + Gradient Boosting)
+15. **Cluster** crime patterns (K-Means + DBSCAN)
+16. **Calculate** sinistrality index (crimes/100k inhabitants)
+17. **Generate** natural language insights from data patterns
+18. **Compute** data confidence scores per hexagonal cell
+
+### Visualization (Fases 3, 5 & 7)
+19. **Interactive dashboard** with 8 tabs (Mapa, Temporal, Heatmap, Estatistica, Analise, Dados, Avancado, Sobre)
+20. **3D map** with PyDeck HexagonLayer + crime ScatterplotLayer
+21. **Animated heatmap** with play/pause and month slider
+22. **Sankey diagram** neighborhood > crime category > risk level
+23. **Network graph** of neighborhood similarity based on infrastructure
+24. **Treemap** hierarchy: neighborhood > category > crime nature
+25. **National comparison** radar chart (Sao Paulo vs Brazil averages)
+26. **Onboarding wizard** for first-time users
+27. **Dark/light theme** toggle for presentations
+28. **PDF report** generation via fpdf2
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+* Docker and Docker Compose installed
+* Python 3.11 or higher
+
+### Docker (Recommended)
 
 ```bash
-# 1. Clonar o repositório e acessar a pasta
 git clone https://github.com/kfrural/safestreet-pipeline.git
 cd safestreet-pipeline
+cp .env.example .env    # Edit with your credentials
+make run-all
 
-# 2. Instalar as dependências do ecossistema de dados Python
-pip install -r requirements.txt
+# Dashboard: http://localhost:8501
+# API docs:  http://localhost:8000/docs
+```
 
-# 3. Inicializar o banco de dados espacial PostGIS via Docker
-docker-compose up -d
+### Local Setup
 
-# 4. Executar os pipelines de dados e a geração da malha espacial
-python src/pipeline_etl.py
-python src/geo_processing.py
+```bash
+# Install dependencies
+make dev-install
 
-# 5. Inicializar o dashboard analítico interactivo
-streamlit run app.py
+# Start PostGIS
+make db-up
 
+# Download and process SSP-SP data
+make download-sp
+make pipeline-sp
+
+# Start dashboard and/or API
+make dashboard
+make api
+```
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `make download-sp` | Download SSP-SP data (default year: 2024) |
+| `make pipeline-sp` | Run full ETL pipeline |
+| `make pipeline-incremental` | Incremental pipeline (skip existing data) |
+| `make dashboard` | Start Streamlit dashboard (port 8501) |
+| `make api` | Start FastAPI server (port 8000) |
+| `make run-all` | Start full stack via Docker |
+| `make test` | Run tests with coverage |
+| `make lint` | Run linter (ruff) |
+
+---
+
+## Dashboard Tabs
+
+| Tab | Content |
+|-----|---------|
+| **Mapa** | Vulnerability map with H3 cells, lighting, transit, cameras, crimes. Toggle 2D (Folium) / 3D (PyDeck) |
+| **Temporal** | Monthly trend, year-over-year comparison, seasonality, weekly cycle |
+| **Heatmap** | Hour x weekday with Plotly Heatmap + animated monthly evolution |
+| **Estatistica** | Pearson, Spearman, OLS regression, RF importance, VIF, ACF, predictive model, clustering, sinistrality |
+| **Analise** | Crime categories, top crime types, infrastructure distance, weather data, transit analysis, sentiment |
+| **Dados** | H3 cell data table, vulnerability gaps, **data confidence scores** |
+| **Avancado** | Sankey diagram, network graph, treemap |
+| **Sobre** | Methodology, IBGE indicators, **national comparison radar**, **rental/income data**, **nighttime transit stats**, **news sentiment**, **auto-generated insights**, PDF report export |
+
+---
+
+## API REST (FastAPI)
+
+Endpoints at `http://localhost:8000/docs`:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check |
+| `GET /cities` | Cities with data |
+| `GET /cities/{city}/stats` | General statistics |
+| `GET /cities/{city}/h3-cells` | H3 cells with vulnerability |
+| `GET /cities/{city}/crimes` | Crime locations |
+| `GET /cities/{city}/categories` | Crime categories |
+| `GET /cities/{city}/temporal` | Temporal trend |
+| `GET /cities/{city}/correlations` | Correlation data |
+| `GET /cities/{city}/gaps` | Vulnerability gaps |
+| `GET /cities/{city}/years` | Available years |
+
+---
+
+## Project Structure
+
+```
+safestreet-pipeline/
+├── src/
+│   ├── config.py               # Centralized settings (Pydantic)
+│   ├── pipeline_etl.py         # ETL orchestrator with incremental mode
+│   ├── analytics/
+│   │   ├── spatial.py          # Moran's I, LISA, spatial weights
+│   │   ├── statistics.py       # PCA, correlation, OLS, RF, clustering, sinistrality
+│   │   └── insights.py         # Confidence scores, natural language insights
+│   ├── data/
+│   │   ├── ssp_sp.py           # SPSafe download (Zenodo)
+│   │   ├── lighting.py         # GeoSampa lighting via WFS
+│   │   ├── ibge.py             # IBGE SIDRA API (municipal + national)
+│   │   ├── osm_infra.py        # OSM infrastructure (with Overpass retry)
+│   │   ├── weather.py          # Open-Meteo API
+│   │   ├── nightlife.py        # OSM nightlife POIs
+│   │   ├── rental.py           # IBGE income per capita (table 10295)
+│   │   ├── transport_night.py  # Nighttime transit analysis (opening_hours)
+│   │   ├── events.py           # Cultural venues from OSM
+│   │   └── sentiment.py        # RSS news sentiment analysis (NLP)
+│   ├── db/
+│   │   ├── connection.py       # SQLAlchemy engine
+│   │   ├── models.py           # ORM: CrimeRecord, InfrastructurePoint, H3Cell
+│   │   ├── queries.py          # SQL queries
+│   │   └── cached_queries.py   # Streamlit @st.cache_data wrappers
+│   ├── spatial/
+│   │   ├── h3_indexer.py       # Uber H3 indexing
+│   │   └── postgis_ops.py      # PostGIS ops, vulnerability, Moran
+│   ├── api/
+│   │   └── app.py              # FastAPI REST API
+│   ├── dashboard/
+│   │   ├── app.py              # Streamlit dashboard (8 tabs)
+│   │   └── components/
+│   │       └── map_viz.py      # Folium map
+│   └── utils/
+│       ├── classifiers.py      # Crime classification
+│       ├── logger.py           # Loguru setup
+│       └── validators.py       # Validators
+├── scripts/
+│   ├── download_ssp_sp.py      # SSP-SP data download
+│   ├── init_db.sql             # PostGIS initialization
+│   └── run_pipeline.sh         # Pipeline runner
+├── tests/
+├── docker-compose.yml          # 5 services: postgis, pipeline, dashboard, api, scheduler
+├── Dockerfile
+├── Makefile
+├── .github/workflows/ci.yml   # CI/CD: lint + test
+├── pyproject.toml
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ---
 
-##  Estrutura de Variáveis e Métricas do Modelo
+## Tech Stack
 
-| Variável | Tipo de Dado | Fonte | Descrição |
-| --- | --- | --- | --- |
-| `h3_index` | `String (Hex)` | Uber H3 | Identificador geográfico único da célula hexagonal (Resolução 9). |
-| `crime_count` | `Integer` | SSP / Base Pública | Volume total de crimes noturnos validados dentro do hexágono. |
-| `lighting_density` | `Float` | OpenStreetMap | Quantidade de luminárias públicas ativas por metro quadrado na célula. |
-| `dist_nearest_lit` | `Float (Metros)` | PostGIS Query | Distância Euclidiana da célula até o ponto de iluminação mais próximo. |
-| `vulnerability_score` | `Float (0-1)` | Algoritmo Core | Índice normalizado calculando a razão entre densidade criminal e eficiência de luz. |
+| Layer | Technology |
+|-------|------------|
+| **Language** | Python 3.11 |
+| **Database** | PostgreSQL 16 + PostGIS 3.4 |
+| **Spatial Indexing** | Uber H3 (Res. 9) |
+| **Spatial Analysis** | PySAL (esda, libpysal) |
+| **ML** | scikit-learn (RF, Gradient Boosting, K-Means, DBSCAN) |
+| **Crime Data** | SPSafe (Zenodo) + labcidade/boletins-ssp |
+| **Lighting** | GeoSampa WFS (~97k official points) |
+| **Infrastructure** | OSMnx + Overpass API |
+| **Socioeconomic** | IBGE SIDRA API (Census 2022) |
+| **Weather** | Open-Meteo Archive API |
+| **Sentiment** | RSS feeds + keyword-based NLP |
+| **Dashboard** | Streamlit + Plotly + Folium + PyDeck |
+| **API** | FastAPI + uvicorn |
+| **Containerization** | Docker Compose (5 services) |
+| **CI/CD** | GitHub Actions |
+| **Quality** | ruff (E,F) + pytest |
+| **PDF Reports** | fpdf2 |
 
 ---
 
-##  Contribuições
+## License
 
-Contribuições são altamente bem-vindas! Se você deseja otimizar o algoritmo de roteamento, incluir novas camadas espaciais (ex: densidade de árvores, presença de câmeras de monitoramento) ou refatorar as queries PostGIS, sinta-se à vontade para abrir uma **Issue** ou enviar um **Pull Request**.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+Open data sources are used under their respective public licenses (OpenStreetMap ODbL, IBGE public data, SSP-SP public data, Open-Meteo free tier).

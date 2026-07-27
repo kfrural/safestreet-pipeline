@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check src/ tests/ --select E,F
+      - run: ruff format --check src/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_DB: safestreet
+          POSTGRES_USER: safestreet
+          POSTGRES_PASSWORD: safestreet_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U safestreet -d safestreet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: psql -h localhost -U safestreet -d safestreet -f scripts/init_db.sql
+        env:
+          PGPASSWORD: safestreet_pass
+      - run: PYTHONPATH=$(pwd) pytest --tb=short -q
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: safestreet
+          POSTGRES_USER: safestreet
+          POSTGRES_PASSWORD: safestreet_pass
