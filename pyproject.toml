@@ -45,6 +45,8 @@ dependencies = [
     "shapely>=2.0",
     "tqdm>=4.66",
     "requests>=2.31",
+    "fastapi>=0.109",
+    "uvicorn[standard]>=0.27",
 ]
 
 [project.optional-dependencies]
