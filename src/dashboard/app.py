@@ -325,7 +325,8 @@ def _render_metrics(selected_city: str, year: int | None, month: int | None) -> 
         _ibge_file = _Path(f"data/external/ibge_stats_{selected_city}.json")
         if _ibge_file.exists():
             _ibge = _json.loads(_ibge_file.read_text())
-            _pop = _ibge.get("populacao_2022")
+            _pop_raw = _ibge.get("populacao_2022")
+            _pop = float(str(_pop_raw).replace(".", "").replace(",", ".")) if _pop_raw else 0
             _total = int(stats.get("total_crimes", 0))
             if _pop and _pop > 0 and _total > 0:
                 _rate = (_total / _pop) * 100_000
