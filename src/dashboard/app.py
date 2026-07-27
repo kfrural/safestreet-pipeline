@@ -1006,7 +1006,12 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
     population = None
     if ibge_file.exists():
         ibge_data = json.loads(ibge_file.read_text())
-        population = ibge_data.get("populacao_2022")
+        pop_raw = ibge_data.get("populacao_2022")
+        if pop_raw:
+            try:
+                population = int(float(str(pop_raw).replace(".", "").replace(",", ".")))
+            except (ValueError, TypeError):
+                population = None
 
     if population and population > 0:
         total_crimes = int(corr_df["crime_count"].sum())
@@ -1285,12 +1290,24 @@ def _render_about_tab(selected_city: str) -> None:
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
             avg_inc = rental_data.get("avg_monthly_income")
+            try:
+                avg_inc = float(str(avg_inc).replace(",", ".")) if avg_inc else None
+            except (ValueError, TypeError):
+                avg_inc = None
             st.metric("Renda per Capita Media", f"R$ {avg_inc:,.0f}" if avg_inc else "N/A")
         with rc2:
             med_inc = rental_data.get("median_monthly_income")
+            try:
+                med_inc = float(str(med_inc).replace(",", ".")) if med_inc else None
+            except (ValueError, TypeError):
+                med_inc = None
             st.metric("Renda per Capita Mediana", f"R$ {med_inc:,.0f}" if med_inc else "N/A")
         with rc3:
             pop = rental_data.get("population_2022")
+            try:
+                pop = int(float(str(pop).replace(".", "").replace(",", "."))) if pop else None
+            except (ValueError, TypeError):
+                pop = None
             st.metric("Populacao 2022", f"{pop:,}" if pop else "N/A")
     else:
         st.caption("Dados de renda nao disponiveis. Execute o pipeline para buscar.")
@@ -1502,7 +1519,13 @@ def _generate_pdf_report(city: str) -> bytes | None:
     ibge_file = Path(f"data/external/ibge_stats_{city}.json")
     if ibge_file.exists():
         ibge_data = json.loads(ibge_file.read_text())
-        pop = ibge_data.get("populacao_2022", 0)
+        pop_raw = ibge_data.get("populacao_2022")
+        pop = None
+        if pop_raw:
+            try:
+                pop = int(float(str(pop_raw).replace(".", "").replace(",", ".")))
+            except (ValueError, TypeError):
+                pass
         if pop and pop > 0:
             total = int(stats.get("total_crimes", 0))
             rate = (total / pop) * 100_000
