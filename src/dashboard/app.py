@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from loguru import logger
 
-from src.config import get_city, settings
+from src.config import get_city, list_cities, settings
 from src.dashboard.components.map_viz import create_vulnerability_map
 from src.db.cached_queries import (
     load_available_months,
@@ -165,7 +165,8 @@ def _render_onboarding() -> None:
 
 
 def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | None]:
-    selected_city = "sao-paulo"
+    available_cities = list_cities()
+    selected_city = available_cities[0] if available_cities else "sao-paulo"
     selected_year = None
     selected_month = None
     selected_neighborhood = None
@@ -179,8 +180,22 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
         st.markdown("Analise de Vulnerabilidade Urbana Noturna")
         st.markdown("---")
 
+        st.subheader("Cidade")
+        city_options = available_cities
+        city_labels = {c: get_city(c).name for c in city_options}
+        selected_city = st.selectbox(
+            "Selecionar cidade:",
+            options=city_options,
+            format_func=lambda x: city_labels.get(x, x),
+            key="city_selector",
+        )
+
         st.subheader("Fonte dos Dados")
-        st.caption("SSP-SP - Boletins de Ocorrencia (2013-2019)")
+        city_cfg = get_city(selected_city)
+        if city_cfg.data_source == "ssp_sp":
+            st.caption("SSP-SP - Boletins de Ocorrencia (2013-2019)")
+        else:
+            st.caption("SPSafe - Dados SSP (2020-2022)")
         st.caption("OpenStreetMap - Infraestrutura Urbana")
         st.markdown("---")
 
@@ -1348,7 +1363,9 @@ def _render_about_tab(selected_city: str) -> None:
     from src.data.ibge import get_national_comparison
 
     try:
-        comparison = get_national_comparison(cache_dir=Path("data/external"))
+        comparison = get_national_comparison(
+            cache_dir=Path("data/external"), city_key=selected_city,
+        )
         nat = comparison.get("nacional", {})
         sp = comparison.get("sao_paulo", {})
 
@@ -1398,7 +1415,7 @@ def _render_about_tab(selected_city: str) -> None:
                 fig_radar.add_trace(go.Scatterpolar(
                     r=sp_vals + [sp_vals[0]],
                     theta=categories_radar + [categories_radar[0]],
-                    fill="toself", name="Sao Paulo",
+                    fill="toself", name=city_cfg.name,
                     line_color="#dc3545",
                 ))
                 fig_radar.add_trace(go.Scatterpolar(
@@ -1416,7 +1433,7 @@ def _render_about_tab(selected_city: str) -> None:
 
                 rc1, rc2 = st.columns(2)
                 with rc1:
-                    st.markdown(f"**Sao Paulo** - Pop: {sp_pop}, Dens: {sp_dens} hab/km2")
+                    st.markdown(f"**{city_cfg.name}** - Pop: {sp_pop}, Dens: {sp_dens} hab/km2")
                 with rc2:
                     st.markdown(f"**Brasil** - Pop: {nat_pop}, Dens: {nat_dens} hab/km2")
             else:

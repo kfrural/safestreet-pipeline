@@ -130,8 +130,14 @@ def _fetch_sidra_national(
     return records
 
 
-def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
-    cache_path = cache_dir / "ibge_sao_paulo.json" if cache_dir else None
+def fetch_ibge_indicators(
+    cache_dir: Path | None = None,
+    ibge_code: str | None = None,
+    city_key: str | None = None,
+) -> dict:
+    code = ibge_code or SAO_PAULO_IBGE
+    cache_name = f"ibge_{city_key or code}.json"
+    cache_path = cache_dir / cache_name if cache_dir else None
 
     if cache_path and cache_path.exists():
         logger.info("Carregando indicadores IBGE do cache: {}", cache_path)
@@ -141,7 +147,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     pop_data = _fetch_sidra(
         TABLES["population"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["population"]["vars"],
     )
     if pop_data:
@@ -150,7 +156,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     est_data = _fetch_sidra(
         TABLES["pop_estimate"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["pop_estimate"]["vars"],
         period="all",
     )
@@ -160,7 +166,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     lit_data = _fetch_sidra(
         TABLES["literacy"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["literacy"]["vars"],
         classifications=TABLES["literacy"]["classifications"],
     )
@@ -170,7 +176,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     age_data = _fetch_sidra(
         TABLES["age_pyramid"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["age_pyramid"]["vars"],
         classifications=TABLES["age_pyramid"]["classifications"],
         period="last",
@@ -181,7 +187,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     hh_data = _fetch_sidra(
         TABLES["households"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["households"]["vars"],
     )
     if hh_data:
@@ -190,7 +196,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     race_data = _fetch_sidra(
         TABLES["race"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["race"]["vars"],
         classifications=TABLES["race"]["classifications"],
     )
@@ -200,7 +206,7 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
 
     inc_data = _fetch_sidra(
         TABLES["households_income"]["table"],
-        SAO_PAULO_IBGE,
+        code,
         TABLES["households_income"]["vars"],
     )
     if inc_data:
@@ -215,10 +221,14 @@ def fetch_ibge_indicators(cache_dir: Path | None = None) -> dict:
     return indicators
 
 
-def compute_ibge_summary(indicators: dict) -> dict:
+def compute_ibge_summary(
+    indicators: dict,
+    city_name: str = "Sao Paulo (SP)",
+    ibge_code: str | None = None,
+) -> dict:
     summary: dict = {
-        "municipio": "Sao Paulo (SP)",
-        "codigo_ibge": SAO_PAULO_IBGE,
+        "municipio": city_name,
+        "codigo_ibge": ibge_code or SAO_PAULO_IBGE,
     }
 
     if "population" in indicators and indicators["population"]:
@@ -264,12 +274,17 @@ def get_ibge_summary_for_city(
     city_key: str,
     cache_dir: Path | None = None,
 ) -> dict:
-    if city_key != "sao-paulo":
-        logger.warning("IBGE: dados disponiveis apenas para Sao Paulo")
-        return {}
+    from src.config import get_city
 
-    indicators = fetch_ibge_indicators(cache_dir)
-    return compute_ibge_summary(indicators)
+    city_cfg = get_city(city_key)
+    code = city_cfg.ibge_code or SAO_PAULO_IBGE
+
+    indicators = fetch_ibge_indicators(cache_dir, ibge_code=code, city_key=city_key)
+    return compute_ibge_summary(
+        indicators,
+        city_name=f"{city_cfg.name} ({city_cfg.state})",
+        ibge_code=code,
+    )
 
 
 NATIONAL_LEVEL = "0"
@@ -339,12 +354,21 @@ def compute_national_summary(indicators: dict) -> dict:
     return summary
 
 
-def get_national_comparison(cache_dir: Path | None = None) -> dict:
+def get_national_comparison(cache_dir: Path | None = None, city_key: str = "sao-paulo") -> dict:
+    from src.config import get_city
+
+    city_cfg = get_city(city_key)
+    code = city_cfg.ibge_code or SAO_PAULO_IBGE
+
     national = fetch_national_indicators(cache_dir)
-    sp = fetch_ibge_indicators(cache_dir)
+    sp = fetch_ibge_indicators(cache_dir, ibge_code=code, city_key=city_key)
 
     nat_summary = compute_national_summary(national)
-    sp_summary = compute_ibge_summary(sp)
+    sp_summary = compute_ibge_summary(
+        sp,
+        city_name=f"{city_cfg.name} ({city_cfg.state})",
+        ibge_code=code,
+    )
 
     return {
         "nacional": nat_summary,

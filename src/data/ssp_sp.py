@@ -102,6 +102,7 @@ def merge_ssp_datasets(
     existing_csv: Path,
     spsafe_dir: Path,
     years: list[int] | None = None,
+    city_filter: str | None = "SAO PAULO",
 ) -> pd.DataFrame:
     existing = pd.read_csv(existing_csv, encoding="utf-8", low_memory=False)
     existing["data"] = pd.to_datetime(
@@ -123,11 +124,11 @@ def merge_ssp_datasets(
             df = pd.read_csv(csv_file, encoding="utf-8", low_memory=False)
             df = normalize_spsafe_columns(df)
 
-            if "cidade" in df.columns:
-                sp_mask = df["cidade"].str.upper().str.contains(
-                    "SAO PAULO|S.PAULO|SÃO PAULO", na=False,
-                )
-                df = df[sp_mask]
+            if "cidade" in df.columns and city_filter:
+                city_pattern = city_filter.upper()
+                df = df[
+                    df["cidade"].str.upper().str.contains(city_pattern, na=False)
+                ]
 
             if years and "ano_bo" in df.columns:
                 df = df[df["ano_bo"].isin(years)]
@@ -140,7 +141,10 @@ def merge_ssp_datasets(
                 ]
 
             new_frames.append(df)
-            logger.info("SPSafe {} OK: {} registros SP", csv_file.name, len(df))
+            logger.info(
+                "SPSafe {} OK: {} registros {}",
+                csv_file.name, len(df), city_filter or "ALL",
+            )
         except Exception as e:
             logger.warning("Erro ao processar {}: {}", csv_file.name, e)
 

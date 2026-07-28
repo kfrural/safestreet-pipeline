@@ -76,6 +76,7 @@ class CityConfig:
     bbox_lon_max: float = 0.0
     data_source: str = ""
     crime_file_pattern: str = ""
+    ibge_code: str = ""
 
 
 CITIES: dict[str, CityConfig] = {
@@ -92,6 +93,22 @@ CITIES: dict[str, CityConfig] = {
         bbox_lon_max=-46.30,
         data_source="ssp_sp",
         crime_file_pattern="ssp_sp_{year}.xlsx",
+        ibge_code="3550308",
+    ),
+    "ribeirao-preto": CityConfig(
+        name="Ribeirao Preto",
+        state="SP",
+        osm_name="Ribeirao Preto, Brazil",
+        center_lat=-21.1767,
+        center_lon=-47.8208,
+        zoom_start=12,
+        bbox_lat_min=-21.25,
+        bbox_lat_max=-21.10,
+        bbox_lon_min=-47.90,
+        bbox_lon_max=-47.75,
+        data_source="sp_safe",
+        crime_file_pattern="spsafe_{year}.csv",
+        ibge_code="3543402",
     ),
 }
 

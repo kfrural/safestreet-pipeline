@@ -54,12 +54,22 @@ def test_city_config_saopaulo() -> None:
     assert city.name == "Sao Paulo"
     assert city.state == "SP"
     assert city.data_source == "ssp_sp"
+    assert city.ibge_code == "3550308"
+
+
+def test_city_config_ribeirao_preto() -> None:
+    city = get_city("ribeirao-preto")
+    assert city.name == "Ribeirao Preto"
+    assert city.state == "SP"
+    assert city.data_source == "sp_safe"
+    assert city.ibge_code == "3543402"
 
 
 def test_list_cities() -> None:
     cities = list_cities()
     assert "sao-paulo" in cities
-    assert len(cities) == 1
+    assert "ribeirao-preto" in cities
+    assert len(cities) >= 2
 
 
 def test_get_city_invalid() -> None:

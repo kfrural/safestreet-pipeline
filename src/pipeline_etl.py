@@ -282,6 +282,61 @@ def _load_city_data(
             "Execute: python scripts/download_ssp_sp.py"
         )
 
+    if city_config.data_source == "sp_safe":
+        from src.data.ssp_sp import (
+            download_spsafe_dataset,
+            merge_ssp_datasets,
+            normalize_spsafe_columns,
+        )
+
+        spsafe_dir = raw_dir / "spsafe"
+        spsafe_dir.mkdir(parents=True, exist_ok=True)
+
+        extracted = download_spsafe_dataset(spsafe_dir)
+        if not extracted:
+            raise FileNotFoundError(
+                "Nenhum arquivo SPSafe encontrado. Verifique a conexao."
+            )
+
+        csv_path = raw_dir / f"spsafe_{city_key}.csv"
+        if csv_path.exists():
+            return load_dataframe(csv_path)
+
+        existing_csv = raw_dir / "ssp_sp_crimes.csv"
+        if existing_csv.exists():
+            df = merge_ssp_datasets(
+                existing_csv, spsafe_dir,
+                city_filter=city_config.name.upper(),
+            )
+        else:
+            frames = []
+            city_pattern = city_config.name.upper()
+            for csv_file in sorted(spsafe_dir.glob("*.csv")):
+                try:
+                    df = pd.read_csv(csv_file, encoding="utf-8", low_memory=False)
+                    df = normalize_spsafe_columns(df)
+                    if "cidade" in df.columns:
+                        df = df[
+                            df["cidade"].str.upper().str.contains(city_pattern, na=False)
+                        ]
+                    if "latitude" in df.columns and "longitude" in df.columns:
+                        df = df.dropna(subset=["latitude", "longitude"])
+                        df = df[
+                            (df["latitude"].abs() < 90)
+                            & (df["longitude"].abs() < 180)
+                        ]
+                    frames.append(df)
+                except Exception as e:
+                    logger.warning("Erro ao processar {}: {}", csv_file.name, e)
+
+            if not frames:
+                raise FileNotFoundError(f"Nenhum dado SPSafe para {city_key}")
+            df = pd.concat(frames, ignore_index=True)
+
+        df.to_csv(csv_path, index=False)
+        logger.info("Dados {} salvos: {} registros", city_key, len(df))
+        return df
+
     pattern = city_config.crime_file_pattern
     csv_files = sorted(
         raw_dir.glob(pattern.replace("{year}", "*")),
@@ -306,6 +361,12 @@ def _clean_city_data(
 
     if city_key == "sao-paulo":
         return clean_crime_data_sp(df)
+    elif city_key == "ribeirao-preto":
+        return clean_generic_crime_data(
+            df,
+            lat_column="latitude",
+            lon_column="longitude",
+        )
     else:
         return clean_generic_crime_data(df)
 
@@ -389,6 +450,13 @@ def _fetch_and_store_ibge(city_key: str) -> None:
 
 
 def _fetch_official_lighting(city_key: str, city_config: object) -> None:
+    if city_config.data_source != "ssp_sp":
+        logger.info(
+            "Iluminacao GeoSampa nao disponivel para {} (apenas Sao Paulo), ignorando",
+            city_key,
+        )
+        return
+
     from src.data.lighting import fetch_lighting_from_geosampa
 
     try:
