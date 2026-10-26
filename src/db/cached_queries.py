@@ -37,11 +37,13 @@ from src.db.queries import (
     get_vulnerability_gaps,
     get_weekly_cycle,
 )
+from src.utils.classifiers import classify_crime
 
 _TTL = 300  # 5 minutes
 _ROOT = Path(__file__).resolve().parents[2]
 _PROCESSED = _ROOT / "data" / "processed"
 _EXTERNAL = _ROOT / "data" / "external"
+_RAW = _ROOT / "data" / "raw"
 
 
 def _load_h3_from_files(city: str | None = None) -> list[dict[str, Any]]:
@@ -199,6 +201,90 @@ def load_heatmap_hour_weekday(
     return get_heatmap_hour_weekday(city, year, month)
 
 
+def _load_crime_locations_from_csv(
+    city: str,
+    year: int | None = None,
+    month: int | None = None,
+    category: str | None = None,
+) -> list[dict[str, Any]]:
+    csv_path = _RAW / "ssp_sp_crimes.csv"
+    if not csv_path.exists():
+        return []
+    try:
+        df = pd.read_csv(csv_path, low_memory=False)
+    except Exception:
+        return []
+
+    df = df.rename(
+        columns={
+            "data": "date",
+            "horario": "time",
+            "natureza": "nature",
+            "bairro": "neighborhood",
+            "cidade": "city",
+            "latitude": "lat",
+            "longitude": "lon",
+        }
+    )
+
+    if "city" in df.columns:
+        df["city"] = df["city"].astype(str).str.strip().str.lower()
+        city_norm = city.lower()
+        if city_norm in ("sao-paulo", "sao paulo"):
+            df = df[(df["city"].str.contains("paulo")) | (df["city"].isin(["s.p.aulo", "sp", "sao paulo", "são paulo"]))]
+        else:
+            df = df[df["city"] == city_norm]
+
+    if year is not None and "date" in df.columns:
+        try:
+            df["year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
+            df = df[df["year"] == int(year)]
+        except Exception:
+            pass
+    if month is not None and "date" in df.columns:
+        try:
+            if "year" not in df.columns:
+                df["year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
+            df["month"] = pd.to_datetime(df["date"], errors="coerce").dt.month
+            df = df[df["month"] == int(month)]
+        except Exception:
+            pass
+
+    if "nature" in df.columns:
+        df["crime_category"] = df["nature"].apply(classify_crime)
+    else:
+        df["crime_category"] = "Outros"
+
+    if category is not None:
+        df = df[df["crime_category"] == category]
+
+    results = []
+    for _, row in df.iterrows():
+        try:
+            lat = row.get("lat") or row.get("latitude")
+            lon = row.get("lon") or row.get("longitude")
+            if pd.isna(lat) or pd.isna(lon):
+                continue
+            lat_f = float(str(lat).replace(",", "."))
+            lon_f = float(str(lon).replace(",", "."))
+            if lat_f == 0 or lon_f == 0:
+                continue
+            results.append(
+                {
+                    "latitude": lat_f,
+                    "longitude": lon_f,
+                    "nature": row.get("nature"),
+                    "crime_category": row.get("crime_category"),
+                    "neighborhood": row.get("neighborhood"),
+                    "time": row.get("time"),
+                    "date": row.get("date"),
+                }
+            )
+        except Exception:
+            continue
+    return results
+
+
 @st.cache_data(ttl=_TTL, show_spinner=False)
 def load_crime_locations_filtered(
     city: str,
@@ -206,7 +292,13 @@ def load_crime_locations_filtered(
     month: int | None = None,
     category: str | None = None,
 ) -> list[dict[str, Any]]:
-    return get_crime_locations_filtered(city, year, month, category)
+    try:
+        res = get_crime_locations_filtered(city, year, month, category)
+        if res:
+            return res
+    except Exception:
+        pass
+    return _load_crime_locations_from_csv(city, year, month, category)
 
 
 @st.cache_data(ttl=_TTL, show_spinner=False)
