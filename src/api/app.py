@@ -5,6 +5,7 @@ FastAPI endpoints for programmatic access to SafeStreet data.
 Run with:
     PYTHONPATH=. uvicorn src.api.app:app --host 0.0.0.0 --port 8000
 """
+
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query

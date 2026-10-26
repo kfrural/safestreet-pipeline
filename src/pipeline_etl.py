@@ -105,8 +105,7 @@ def run_pipeline(
             else:
                 proto = f"{proto}_{idx}"
             natureza_val = str(
-                row.get(cols.get("tipo", ""), "")
-                or row.get(cols.get("natureza", ""), "crime")
+                row.get(cols.get("tipo", ""), "") or row.get(cols.get("natureza", ""), "crime")
             )
             crime_records.append(
                 {
@@ -155,9 +154,7 @@ def run_pipeline(
             if gdf_infra.empty:
                 continue
             gdf_crs = gdf_infra.to_crs("EPSG:4326")
-            has_poly = gdf_crs.geometry.geom_type.isin(
-                ["Polygon", "MultiPolygon"]
-            ).any()
+            has_poly = gdf_crs.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).any()
             if has_poly:
                 utm = gdf_infra.to_crs(gdf_infra.estimate_utm_crs())
                 centroids = utm.geometry.centroid.to_crs("EPSG:4326")
@@ -184,9 +181,7 @@ def run_pipeline(
                 if gdf_poi.empty:
                     continue
                 gdf_crs = gdf_poi.to_crs("EPSG:4326")
-                has_poly = gdf_crs.geometry.geom_type.isin(
-                    ["Polygon", "MultiPolygon"]
-                ).any()
+                has_poly = gdf_crs.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).any()
                 if has_poly:
                     utm = gdf_poi.to_crs(gdf_poi.estimate_utm_crs())
                     centroids = utm.geometry.centroid.to_crs("EPSG:4326")
@@ -323,16 +318,13 @@ def _fetch_and_store_weather(
 
     try:
         date_cols = [
-            c for c in crime_gdf.columns
-            if c.lower() in ("date", "data", "data_bo", "data_hora_bo")
+            c for c in crime_gdf.columns if c.lower() in ("date", "data", "data_bo", "data_hora_bo")
         ]
         if not date_cols:
             logger.warning("Sem coluna de data no GeoDataFrame para clima")
             return
 
-        dates = pd.to_datetime(
-            crime_gdf[date_cols[0]], errors="coerce"
-        ).dropna()
+        dates = pd.to_datetime(crime_gdf[date_cols[0]], errors="coerce").dropna()
 
         if dates.empty:
             logger.warning("Sem datas validas para buscar clima")
@@ -441,9 +433,7 @@ def _fetch_and_store_sentiment(city_key: str) -> None:
             summary = compute_sentiment_summary(headlines)
             summary["headlines"] = headlines
             sentiment_file = external_dir / f"sentiment_{city_key}.json"
-            sentiment_file.write_text(
-                _json.dumps(summary, default=str, ensure_ascii=False)
-            )
+            sentiment_file.write_text(_json.dumps(summary, default=str, ensure_ascii=False))
             logger.info(
                 "Sentimento: {} headlines analisadas -> {}",
                 len(headlines),

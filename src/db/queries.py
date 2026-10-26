@@ -65,17 +65,12 @@ def get_h3_cells(city: str | None = None) -> list[dict[str, Any]]:
         )
         try:
             with get_connection() as conn:
-                result = conn.execute(
-                    query, {"city": city}
-                ).mappings().all()
+                result = conn.execute(query, {"city": city}).mappings().all()
             return [dict(row) for row in result]
         except Exception:
             return []
     else:
-        query = text(
-            f"SELECT {_cols} FROM safestreet.h3_cells"
-            " ORDER BY vulnerability_score DESC"
-        )
+        query = text(f"SELECT {_cols} FROM safestreet.h3_cells ORDER BY vulnerability_score DESC")
         try:
             with get_connection() as conn:
                 result = conn.execute(query).mappings().all()

@@ -33,6 +33,7 @@ def fetch_infrastructure(
                 frames.append(gdf)
         if frames:
             import pandas as pd
+
             result = pd.concat(frames, ignore_index=True)
             if "osmid" in result.columns:
                 result = result.drop_duplicates(subset=["osmid"])
@@ -51,14 +52,10 @@ def fetch_infrastructure(
     orig_timeout = ox.settings.requests_timeout
 
     for attempt, endpoint in enumerate(OVERPASS_ENDPOINTS):
-        query_timeout = OVERPASS_QUERY_TIMEOUTS[
-            min(attempt, len(OVERPASS_QUERY_TIMEOUTS) - 1)
-        ]
+        query_timeout = OVERPASS_QUERY_TIMEOUTS[min(attempt, len(OVERPASS_QUERY_TIMEOUTS) - 1)]
         ox.settings.overpass_url = endpoint
         ox.settings.requests_timeout = HTTP_TIMEOUT
-        ox.settings.overpass_settings = (
-            "[out:json][timeout:" + str(query_timeout) + "]{maxsize}"
-        )
+        ox.settings.overpass_settings = "[out:json][timeout:" + str(query_timeout) + "]{maxsize}"
         try:
             gdf = ox.features_from_place(city_name, tags=tags)
             gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]

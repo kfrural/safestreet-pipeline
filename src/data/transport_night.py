@@ -62,21 +62,24 @@ def fetch_transit_with_hours(city_name: str) -> dict[str, GeoDataFrame]:
 
             if "opening_hours" in gdf.columns:
                 parsed = gdf["opening_hours"].apply(
-                    lambda x: _parse_opening_hours(x)
-                    if x and str(x) != "nan"
-                    else {"is_24h": False, "opens": None, "closes": None, "raw": ""}
+                    lambda x: (
+                        _parse_opening_hours(x)
+                        if x and str(x) != "nan"
+                        else {"is_24h": False, "opens": None, "closes": None, "raw": ""}
+                    )
                 )
                 gdf["is_24h"] = parsed.apply(lambda p: p.get("is_24h", False))
-                gdf["opens_at_night"] = parsed.apply(
-                    lambda p: _is_open_at_night(p)
-                )
+                gdf["opens_at_night"] = parsed.apply(lambda p: _is_open_at_night(p))
                 gdf["night_hours_raw"] = parsed.apply(lambda p: p.get("raw", ""))
 
                 n_24h = gdf["is_24h"].sum()
                 n_night = gdf["opens_at_night"].sum()
                 logger.info(
                     "{}: {} total, {} 24h, {} abrem a noite",
-                    infra_type, len(gdf), n_24h, n_night,
+                    infra_type,
+                    len(gdf),
+                    n_24h,
+                    n_night,
                 )
             else:
                 gdf["is_24h"] = False
@@ -84,7 +87,8 @@ def fetch_transit_with_hours(city_name: str) -> dict[str, GeoDataFrame]:
                 gdf["night_hours_raw"] = ""
                 logger.info(
                     "{}: {} total (sem opening_hours)",
-                    infra_type, len(gdf),
+                    infra_type,
+                    len(gdf),
                 )
 
             results[infra_type] = gdf

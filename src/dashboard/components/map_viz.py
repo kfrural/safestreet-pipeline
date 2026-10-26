@@ -23,6 +23,18 @@ CATEGORY_ICONS = {
 }
 
 
+def _num(value: Any, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    try:
+        s = str(value).strip().replace(",", ".")
+        if not s or s.lower() == "nan":
+            return default
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
 def create_vulnerability_map(
     h3_data: list[dict[str, Any]],
     city_config: CityConfig | None = None,
@@ -52,27 +64,30 @@ def create_vulnerability_map(
 
         for _, row in df.iterrows():
             try:
-                boundary = h3_lib.cell_to_boundary(row["h3_index"])
+                if hasattr(h3_lib, "cell_to_boundary"):
+                    boundary = h3_lib.cell_to_boundary(row["h3_index"])
+                else:  # h3 v3 fallback
+                    boundary = h3_lib.h3_to_geo_boundary(row["h3_index"])
                 coords = [(lat, lng) for lat, lng in boundary]
             except Exception:
                 continue
 
-            score = row.get("vulnerability_score") or 0
+            score = _num(row.get("vulnerability_score"))
             color = _score_color(score)
             moran = row.get("moran_cluster") or "N/A"
 
             popup_html = (
                 f"<div style='font-family: monospace; font-size: 12px;'>"
                 f"<b>H3:</b> {row['h3_index']}<br>"
-                f"<b>Ocorrencias:</b> {row.get('crime_count', 0)}<br>"
+                f"<b>Ocorrencias:</b> {_num(row.get('crime_count')):.0f}<br>"
                 f"<b>Vulnerabilidade:</b> {score:.3f}<br>"
-                f"<b>Dens. Iluminacao:</b> {(row.get('lighting_density') or 0):.2f}<br>"
-                f"<b>Dens. Onibus:</b> {(row.get('bus_stop_density') or 0):.2f}<br>"
-                f"<b>Dens. Metro:</b> {(row.get('metro_density') or 0):.2f}<br>"
-                f"<b>Cameras:</b> {row.get('camera_count', 0)}<br>"
-                f"<b>Dist. Luz (m):</b> {(row.get('dist_nearest_lit') or 0):.1f}<br>"
-                f"<b>Dist. Onibus (m):</b> {(row.get('dist_nearest_bus') or 0):.1f}<br>"
-                f"<b>Dist. Metro (m):</b> {(row.get('dist_nearest_metro') or 0):.1f}<br>"
+                f"<b>Dens. Iluminacao:</b> {_num(row.get('lighting_density')):.2f}<br>"
+                f"<b>Dens. Onibus:</b> {_num(row.get('bus_stop_density')):.2f}<br>"
+                f"<b>Dens. Metro:</b> {_num(row.get('metro_density')):.2f}<br>"
+                f"<b>Cameras:</b> {_num(row.get('camera_count')):.0f}<br>"
+                f"<b>Dist. Luz (m):</b> {_num(row.get('dist_nearest_lit')):.1f}<br>"
+                f"<b>Dist. Onibus (m):</b> {_num(row.get('dist_nearest_bus')):.1f}<br>"
+                f"<b>Dist. Metro (m):</b> {_num(row.get('dist_nearest_metro')):.1f}<br>"
                 f"<b>Cluster Moran:</b> {moran}"
                 f"</div>"
             )
@@ -98,6 +113,10 @@ def create_vulnerability_map(
                     continue
                 fg = folium.FeatureGroup(name=f"Crimes - {cat}")
                 for _, row in cat_df.iterrows():
+                    lat_v = _num(row.get("latitude"))
+                    lon_v = _num(row.get("longitude"))
+                    if lat_v == 0 or lon_v == 0:
+                        continue
                     popup_html = (
                         f"<div style='font-family: monospace; font-size: 11px;'>"
                         f"<b>Tipo:</b> {cat}<br>"
@@ -107,7 +126,7 @@ def create_vulnerability_map(
                         f"</div>"
                     )
                     folium.CircleMarker(
-                        location=[row["latitude"], row["longitude"]],
+                        location=[lat_v, lon_v],
                         radius=3,
                         color=color,
                         fill=True,

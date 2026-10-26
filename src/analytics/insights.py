@@ -54,9 +54,9 @@ def generate_insights(
         )
 
     low_lit_cells = [
-        c for c in h3_data
-        if (c.get("crime_count") or 0) > avg_crimes
-        and (c.get("lighting_density") or 0) < 0.001
+        c
+        for c in h3_data
+        if (c.get("crime_count") or 0) > avg_crimes and (c.get("lighting_density") or 0) < 0.001
     ]
     if low_lit_cells:
         pct = len(low_lit_cells) / len(h3_data) * 100
@@ -66,9 +66,9 @@ def generate_insights(
         )
 
     camera_rich = [
-        c for c in h3_data
-        if (c.get("camera_count") or 0) > 0
-        and (c.get("crime_count") or 0) > avg_crimes
+        c
+        for c in h3_data
+        if (c.get("camera_count") or 0) > 0 and (c.get("crime_count") or 0) > avg_crimes
     ]
     if camera_rich:
         insights.append(
@@ -78,7 +78,8 @@ def generate_insights(
         )
 
     nightlife_risk = [
-        c for c in h3_data
+        c
+        for c in h3_data
         if (c.get("nightlife_density") or 0) > 0.005
         and (c.get("crime_count") or 0) > avg_crimes * 1.5
     ]
@@ -102,9 +103,7 @@ def generate_insights(
             pass
 
     vuln_scores = [
-        c.get("vulnerability_score", 0)
-        for c in h3_data
-        if c.get("vulnerability_score") is not None
+        c.get("vulnerability_score", 0) for c in h3_data if c.get("vulnerability_score") is not None
     ]
     if vuln_scores:
         avg_vuln = _stats.mean(vuln_scores)

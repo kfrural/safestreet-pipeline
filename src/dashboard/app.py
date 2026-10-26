@@ -1,7 +1,7 @@
+# ruff: noqa: E402
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -56,8 +56,18 @@ CATEGORY_COLORS = {
 }
 
 MONTH_NAMES = {
-    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+    1: "Jan",
+    2: "Fev",
+    3: "Mar",
+    4: "Abr",
+    5: "Mai",
+    6: "Jun",
+    7: "Jul",
+    8: "Ago",
+    9: "Set",
+    10: "Out",
+    11: "Nov",
+    12: "Dez",
 }
 
 DAY_NAMES = {0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sab"}
@@ -266,6 +276,7 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
                     calculate_moran_clusters(selected_city)
                     st.success("Dados atualizados com sucesso!")
                     from src.db import cached_queries as _cq
+
                     for fn_name in dir(_cq):
                         fn = getattr(_cq, fn_name)
                         if callable(fn) and hasattr(fn, "clear"):
@@ -300,32 +311,6 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
 def _render_metrics(selected_city: str, year: int | None, month: int | None) -> None:
     city_cfg = get_city(selected_city)
     stats = load_city_stats(selected_city)
-    if not stats or (int(stats.get("total_crimes", 0)) == 0 and int(stats.get("total_cells", 0)) == 0):
-        try:
-            import pandas as _pd
-            from pathlib import Path as _Path
-
-            _root = Path(__file__).resolve().parents[2]
-            _csv = _root / "data" / "processed" / "h3_analysis_results_sao-paulo.csv"
-            if not _csv.exists():
-                for _p in (_root / "data" / "processed").glob("h3_analysis_results*.csv"):
-                    _csv = _p
-                    break
-            if _csv.exists():
-                _df = _pd.read_csv(_csv)
-                if "city" in _df.columns:
-                    _df = _df[_df["city"] == selected_city]
-                _tc = int(_df["crime_count"].fillna(0).sum()) if "crime_count" in _df.columns else len(_df)
-                _tcell = len(_df)
-                _hr = 0
-                if "vulnerability_score" in _df.columns:
-                    _hr = int((_df["vulnerability_score"].fillna(0).astype(float) >= 0.7).sum())
-                _mh = 0
-                if "moran_cluster" in _df.columns:
-                    _mh = int(_df["moran_cluster"].astype(str).isin(["HH", "High-High"]).sum())
-                stats = {"total_crimes": _tc, "total_cells": _tcell, "high_risk": _hr, "moran_hh": _mh}
-        except Exception as e:
-            logger.debug("Falha ao calcular stats direto: {}", e)
 
     title = city_cfg.name
     if year:
@@ -335,8 +320,7 @@ def _render_metrics(selected_city: str, year: int | None, month: int | None) -> 
 
     st.title(f"SafeStreet - {title}")
     st.markdown(
-        "Analise espacial de ocorrencias noturnas, "
-        "correlacionadas com infraestrutura urbana."
+        "Analise espacial de ocorrencias noturnas, correlacionadas com infraestrutura urbana."
     )
     st.markdown("---")
 
@@ -371,46 +355,43 @@ def _render_metrics(selected_city: str, year: int | None, month: int | None) -> 
 
 
 def _render_map_tab(
-    selected_city: str, year: int | None, month: int | None,
-    category: str | None = None, neighborhood: str | None = None,
+    selected_city: str,
+    year: int | None,
+    month: int | None,
+    category: str | None = None,
+    neighborhood: str | None = None,
 ) -> None:
     st.subheader("Mapa de Vulnerabilidade")
 
     data = load_h3_cells(selected_city)
     if not data:
-        try:
-            import pandas as _pd
-            from pathlib import Path as _Path
-
-            _root = Path(__file__).resolve().parents[2]
-            _csv = _root / "data" / "processed" / "h3_analysis_results_sao-paulo.csv"
-            if not _csv.exists():
-                for _p in (_root / "data" / "processed").glob("h3_analysis_results*.csv"):
-                    _csv = _p
-                    break
-            if _csv.exists():
-                _df = _pd.read_csv(_csv)
-                if "city" in _df.columns:
-                    _df = _df[_df["city"] == selected_city]
-                _df = _df.replace({_pd.NA: None})
-                data = _df.to_dict("records")
-        except Exception as e:
-            logger.debug("Falha ao ler CSV direto: {}", e)
-    if not data:
-        st.info("Nenhum dado disponivel. Execute o pipeline primeiro.")
+        st.info(
+            "Nenhum dado disponivel. Verifique data/processed/dashboard_snapshot.json "
+            "ou execute o pipeline."
+        )
         return
 
     city_cfg = get_city(selected_city)
 
     map_mode = st.radio(
-        "Visualizacao:", ["2D (Folium)", "3D (PyDeck)"],
-        horizontal=True, key="map_mode",
+        "Visualizacao:",
+        ["2D (Folium)", "3D (PyDeck)"],
+        horizontal=True,
+        key="map_mode",
     )
 
     if map_mode == "3D (PyDeck)":
         import pydeck as pdk
 
         df_cells = pd.DataFrame(data)
+        if "crime_count" in df_cells.columns:
+            df_cells["crime_count"] = pd.to_numeric(
+                df_cells["crime_count"], errors="coerce"
+            ).fillna(0)
+        if "vulnerability_score" in df_cells.columns:
+            df_cells["vulnerability_score"] = pd.to_numeric(
+                df_cells["vulnerability_score"], errors="coerce"
+            ).fillna(0)
         df_cells = df_cells[df_cells["crime_count"] > 0].copy()
         for col in ["latitude", "longitude"]:
             if col not in df_cells.columns:
@@ -437,7 +418,10 @@ def _render_map_tab(
         )
 
         crime_locs = load_crime_locations_filtered(
-            selected_city, year=year, month=month, category=category,
+            selected_city,
+            year=year,
+            month=month,
+            category=category,
         )
         if neighborhood:
             crime_locs = [c for c in crime_locs if c.get("neighborhood") == neighborhood]
@@ -448,9 +432,8 @@ def _render_map_tab(
             for col in ["latitude", "longitude"]:
                 if col not in df_crimes.columns:
                     df_crimes[col] = 0.0
-            df_crimes = df_crimes[
-                (df_crimes["latitude"] != 0) & (df_crimes["longitude"] != 0)
-            ]
+                df_crimes[col] = pd.to_numeric(df_crimes[col], errors="coerce").fillna(0)
+            df_crimes = df_crimes[(df_crimes["latitude"] != 0) & (df_crimes["longitude"] != 0)]
             if not df_crimes.empty:
                 CATEGORY_COLOR_MAP = {
                     "Violencia": [220, 53, 69, 200],
@@ -487,11 +470,15 @@ def _render_map_tab(
                 "Bairro: {neighborhood}"
             )
         }
-        st.pydeck_chart(pdk.Deck(
-            layers=layers,
-            initial_view_state=view,
-            tooltip=tooltip,
-        ), width="stretch", key="chart_3d_map")
+        st.pydeck_chart(
+            pdk.Deck(
+                layers=layers,
+                initial_view_state=view,
+                tooltip=tooltip,
+            ),
+            width="stretch",
+            key="chart_3d_map",
+        )
         st.caption(f"Hexagonas: {len(df_cells)} | Crimes: {len(crime_locs)}")
         return
 
@@ -504,7 +491,10 @@ def _render_map_tab(
     }
 
     crime_locs = load_crime_locations_filtered(
-        selected_city, year=year, month=month, category=category,
+        selected_city,
+        year=year,
+        month=month,
+        category=category,
     )
     if neighborhood:
         crime_locs = [c for c in crime_locs if c.get("neighborhood") == neighborhood]
@@ -552,16 +542,20 @@ def _render_temporal_tab(selected_city: str, year: int | None, month: int | None
                 ymonthly = ydata.groupby("month")["crime_count"].sum().reset_index()
                 ymonthly = ymonthly.sort_values("month")
                 ymonthly["month_name"] = ymonthly["month"].map(MONTH_NAMES)
-                fig_yoy.add_trace(go.Scatter(
-                    x=ymonthly["month_name"],
-                    y=ymonthly["crime_count"],
-                    mode="lines+markers",
-                    name=str(yr),
-                    line=dict(color=palette[i % len(palette)], width=2),
-                ))
+                fig_yoy.add_trace(
+                    go.Scatter(
+                        x=ymonthly["month_name"],
+                        y=ymonthly["crime_count"],
+                        mode="lines+markers",
+                        name=str(yr),
+                        line=dict(color=palette[i % len(palette)], width=2),
+                    )
+                )
             fig_yoy.update_layout(
-                height=380, margin={"t": 30},
-                xaxis_title="Mes", yaxis_title="Crimes",
+                height=380,
+                margin={"t": 30},
+                xaxis_title="Mes",
+                yaxis_title="Crimes",
                 legend_title_text="Ano",
             )
             st.plotly_chart(fig_yoy, width="stretch", key="chart_yoy")
@@ -661,63 +655,89 @@ def _render_heatmap_tab(selected_city: str, year: int | None, month: int | None)
             for period in periods:
                 pm = m_df[m_df["period"] == period]
                 pivot = pm.pivot_table(
-                    index="day_name", columns="hour_label",
-                    values="crime_count", aggfunc="sum", fill_value=0,
+                    index="day_name",
+                    columns="hour_label",
+                    values="crime_count",
+                    aggfunc="sum",
+                    fill_value=0,
                 )
                 day_order = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
                 pivot = pivot.reindex([d for d in day_order if d in pivot.index])
-                frames.append(go.Frame(
-                    data=go.Heatmap(
-                        z=pivot.values, x=pivot.columns,
-                        y=pivot.index, colorscale="YlOrRd",
-                        colorbar=dict(title="Qtd"),
-                        zmin=0,
-                    ),
-                    name=period,
-                ))
+                frames.append(
+                    go.Frame(
+                        data=go.Heatmap(
+                            z=pivot.values,
+                            x=pivot.columns,
+                            y=pivot.index,
+                            colorscale="YlOrRd",
+                            colorbar=dict(title="Qtd"),
+                            zmin=0,
+                        ),
+                        name=period,
+                    )
+                )
 
             init_pivot = m_df[m_df["period"] == periods[0]].pivot_table(
-                index="day_name", columns="hour_label",
-                values="crime_count", aggfunc="sum", fill_value=0,
+                index="day_name",
+                columns="hour_label",
+                values="crime_count",
+                aggfunc="sum",
+                fill_value=0,
             )
             day_order = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
-            init_pivot = init_pivot.reindex(
-                [d for d in day_order if d in init_pivot.index]
-            )
+            init_pivot = init_pivot.reindex([d for d in day_order if d in init_pivot.index])
 
             fig_anim = go.Figure(
                 data=go.Heatmap(
-                    z=init_pivot.values, x=init_pivot.columns,
-                    y=init_pivot.index, colorscale="YlOrRd",
-                    colorbar=dict(title="Qtd"), zmin=0,
+                    z=init_pivot.values,
+                    x=init_pivot.columns,
+                    y=init_pivot.index,
+                    colorscale="YlOrRd",
+                    colorbar=dict(title="Qtd"),
+                    zmin=0,
                 ),
                 frames=frames,
             )
             fig_anim.update_layout(
-                updatemenus=[{
-                    "type": "buttons",
-                    "showactive": False,
-                    "y": 1.08, "x": 0.5, "xanchor": "center",
-                    "buttons": [
-                        {"label": "Play", "method": "animate",
-                         "args": [None, {"frame": {"duration": 600},
-                                         "fromcurrent": True}]},
-                        {"label": "Pause", "method": "animate",
-                         "args": [[None], {"frame": {"duration": 0},
-                                           "mode": "immediate"}]},
-                    ],
-                }],
-                sliders=[{
-                    "steps": [
-                        {"args": [[p], {"frame": {"duration": 300},
-                                        "mode": "immediate"}],
-                         "label": p, "method": "animate"}
-                        for p in periods
-                    ],
-                    "transition": {"duration": 300},
-                    "x": 0, "y": -0.05, "len": 1.0,
-                }],
-                height=420, margin={"t": 30, "b": 80},
+                updatemenus=[
+                    {
+                        "type": "buttons",
+                        "showactive": False,
+                        "y": 1.08,
+                        "x": 0.5,
+                        "xanchor": "center",
+                        "buttons": [
+                            {
+                                "label": "Play",
+                                "method": "animate",
+                                "args": [None, {"frame": {"duration": 600}, "fromcurrent": True}],
+                            },
+                            {
+                                "label": "Pause",
+                                "method": "animate",
+                                "args": [[None], {"frame": {"duration": 0}, "mode": "immediate"}],
+                            },
+                        ],
+                    }
+                ],
+                sliders=[
+                    {
+                        "steps": [
+                            {
+                                "args": [[p], {"frame": {"duration": 300}, "mode": "immediate"}],
+                                "label": p,
+                                "method": "animate",
+                            }
+                            for p in periods
+                        ],
+                        "transition": {"duration": 300},
+                        "x": 0,
+                        "y": -0.05,
+                        "len": 1.0,
+                    }
+                ],
+                height=420,
+                margin={"t": 30, "b": 80},
                 xaxis_title="Hora do Dia",
                 yaxis_title="Dia da Semana",
             )
@@ -760,9 +780,15 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
     }
 
     numeric_cols = [
-        "crime_count", "lighting_density", "bus_stop_density",
-        "metro_density", "camera_count", "nightlife_density",
-        "dist_nearest_lit", "dist_nearest_metro", "vulnerability_score",
+        "crime_count",
+        "lighting_density",
+        "bus_stop_density",
+        "metro_density",
+        "camera_count",
+        "nightlife_density",
+        "dist_nearest_lit",
+        "dist_nearest_metro",
+        "vulnerability_score",
     ]
     available = [c for c in numeric_cols if c in corr_df.columns]
 
@@ -783,7 +809,8 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         corr_display,
         text_auto=".2f",
         color_continuous_scale="RdBu_r",
-        zmin=-1, zmax=1,
+        zmin=-1,
+        zmax=1,
         aspect="auto",
     )
     fig_corr.update_layout(height=500, margin={"t": 30}, coloraxis_colorbar=dict(title="r"))
@@ -797,13 +824,15 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
                 r = corr_matrix.iloc[i, j]
                 p = p_values.iloc[i, j]
                 sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
-                sig_data.append({
-                    "Var 1": label_map.get(col1, col1),
-                    "Var 2": label_map.get(col2, col2),
-                    "r (Pearson)": round(r, 4),
-                    "p-valor": round(p, 6),
-                    "Sig": sig,
-                })
+                sig_data.append(
+                    {
+                        "Var 1": label_map.get(col1, col1),
+                        "Var 2": label_map.get(col2, col2),
+                        "r (Pearson)": round(r, 4),
+                        "p-valor": round(p, 6),
+                        "Sig": sig,
+                    }
+                )
     sig_df = pd.DataFrame(sig_data).sort_values("p-valor")
     st.dataframe(sig_df, width="stretch", hide_index=True)
 
@@ -819,7 +848,8 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
             sp_matrix,
             text_auto=".2f",
             color_continuous_scale="PRGn_r",
-            zmin=-1, zmax=1,
+            zmin=-1,
+            zmax=1,
             aspect="auto",
         )
         fig_sp.update_layout(height=450, margin={"t": 30}, coloraxis_colorbar=dict(title="rho"))
@@ -844,13 +874,15 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
 
         coef_data = []
         for name, info in ols_result["coefficients"].items():
-            coef_data.append({
-                "Variavel": name,
-                "Coef": info["coef"],
-                "t-stat": info["t_stat"],
-                "p-valor": info["p_value"],
-                "Sig": info["stars"],
-            })
+            coef_data.append(
+                {
+                    "Variavel": name,
+                    "Coef": info["coef"],
+                    "t-stat": info["t_stat"],
+                    "p-valor": info["p_value"],
+                    "Sig": info["stars"],
+                }
+            )
         st.dataframe(pd.DataFrame(coef_data), width="stretch", hide_index=True)
 
         if ols_result["residuals"] is not None:
@@ -860,7 +892,8 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
             col_d1, col_d2 = st.columns(2)
             with col_d1:
                 fig_resid = px.histogram(
-                    resid, nbins=50,
+                    resid,
+                    nbins=50,
                     labels={"value": "Residuo", "count": "Frequencia"},
                     title="Distribuicao dos Residuos",
                 )
@@ -881,8 +914,11 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         rf_features.columns = ["Feature", "Importancia"]
         rf_features["Feature"] = rf_features["Feature"].map(label_map)
         fig_rf = px.bar(
-            rf_features, x="Importancia", y="Feature",
-            orientation="h", color="Importancia",
+            rf_features,
+            x="Importancia",
+            y="Feature",
+            orientation="h",
+            color="Importancia",
             color_continuous_scale="Viridis",
         )
         fig_rf.update_layout(height=350, margin={"t": 30}, showlegend=False)
@@ -894,8 +930,7 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
     vif_result = compute_vif(corr_df, columns=available)
     if vif_result["vif"]:
         vif_data = [
-            {"Variavel": label_map.get(k, k), "VIF": v}
-            for k, v in vif_result["vif"].items()
+            {"Variavel": label_map.get(k, k), "VIF": v} for k, v in vif_result["vif"].items()
         ]
         vif_df = pd.DataFrame(vif_data).sort_values("VIF", ascending=False)
 
@@ -908,7 +943,8 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
 
         st.dataframe(
             vif_df.style.map(color_vif, subset=["VIF"]),
-            width="stretch", hide_index=True,
+            width="stretch",
+            hide_index=True,
         )
         st.caption("VIF > 10: multicolinearidade critica | VIF > 5: moderada | VIF < 5: ok")
 
@@ -925,7 +961,9 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         if acf_result:
             acf_df = pd.DataFrame(acf_result)
             fig_acf = px.bar(
-                acf_df, x="lag", y="acf",
+                acf_df,
+                x="lag",
+                y="acf",
                 color="significant",
                 color_discrete_map={True: "#dc3545", False: "#adb5bd"},
                 labels={"lag": "Lag (meses)", "acf": "ACF"},
@@ -952,8 +990,7 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         direction = "positiva" if r > 0 else "negativa"
         strength = "forte" if abs(r) > 0.5 else "moderada" if abs(r) > 0.3 else "fraca"
         st.markdown(
-            f"**{f1}** x **{f2}**: r={r:.3f} (p={p:.4f}) "
-            f"- correlacao {strength} {direction} {sig}"
+            f"**{f1}** x **{f2}**: r={r:.3f} (p={p:.4f}) - correlacao {strength} {direction} {sig}"
         )
 
     st.markdown("---")
@@ -976,16 +1013,20 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
                 st.metric("R² teste", f"{mdata['r2_test']:.4f}")
                 st.metric("RMSE", f"{mdata['rmse']:.2f}")
                 st.metric("MAE", f"{mdata['mae']:.2f}")
-                st.metric("R² CV (media±dp)",
-                         f"{mdata['r2_cv_mean']:.3f} ± {mdata['r2_cv_std']:.3f}")
+                st.metric(
+                    "R² CV (media±dp)", f"{mdata['r2_cv_mean']:.3f} ± {mdata['r2_cv_std']:.3f}"
+                )
 
         best_name = pred_result["best_model"]
         best_features = pred_result["models"][best_name]["feature_importance"]
         rf_imp_df = pd.DataFrame(best_features)
         rf_imp_df["feature"] = rf_imp_df["feature"].map(label_map)
         fig_pred = px.bar(
-            rf_imp_df, x="importance", y="feature",
-            orientation="h", color="importance",
+            rf_imp_df,
+            x="importance",
+            y="feature",
+            orientation="h",
+            color="importance",
             color_continuous_scale="Plasma",
             title=f"Feature Importance ({best_name})",
         )
@@ -994,21 +1035,29 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         st.plotly_chart(fig_pred, width="stretch", key="chart_pred_importance")
 
         if pred_result.get("y_test") and pred_result.get("y_pred"):
-            scatter_df = pd.DataFrame({
-                "Real": pred_result["y_test"],
-                "Previsto": pred_result["y_pred"],
-            })
+            scatter_df = pd.DataFrame(
+                {
+                    "Real": pred_result["y_test"],
+                    "Previsto": pred_result["y_pred"],
+                }
+            )
             fig_scatter = px.scatter(
-                scatter_df, x="Real", y="Previsto",
+                scatter_df,
+                x="Real",
+                y="Previsto",
                 title="Real vs Previsto",
                 opacity=0.5,
             )
             max_val = max(scatter_df["Real"].max(), scatter_df["Previsto"].max())
-            fig_scatter.add_trace(go.Scatter(
-                x=[0, max_val], y=[0, max_val],
-                mode="lines", line=dict(dash="dash", color="red"),
-                name="Ideal",
-            ))
+            fig_scatter.add_trace(
+                go.Scatter(
+                    x=[0, max_val],
+                    y=[0, max_val],
+                    mode="lines",
+                    line=dict(dash="dash", color="red"),
+                    name="Ideal",
+                )
+            )
             fig_scatter.update_layout(height=350, margin={"t": 40})
             st.plotly_chart(fig_scatter, width="stretch", key="chart_pred_scatter")
 
@@ -1042,7 +1091,9 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
         if cluster_result["inertia_curve"]:
             inertia_df = pd.DataFrame(cluster_result["inertia_curve"])
             fig_elbow = px.line(
-                inertia_df, x="k", y="inertia",
+                inertia_df,
+                x="k",
+                y="inertia",
                 title="Elbow Method (Inercia vs K)",
                 markers=True,
             )
@@ -1084,12 +1135,14 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
             cat_rows = []
             for cat, count in cat_sin.items():
                 cat_sin_result = compute_sinistrality_index(int(count), int(population))
-                cat_rows.append({
-                    "Categoria": cat,
-                    "Crimes": count,
-                    "Crimes/100k hab": f"{cat_sin_result['rate_per_100k']:,.1f}",
-                    "Nivel": cat_sin_result.get("level", ""),
-                })
+                cat_rows.append(
+                    {
+                        "Categoria": cat,
+                        "Crimes": count,
+                        "Crimes/100k hab": f"{cat_sin_result['rate_per_100k']:,.1f}",
+                        "Nivel": cat_sin_result.get("level", ""),
+                    }
+                )
             st.dataframe(pd.DataFrame(cat_rows), width="stretch", hide_index=True)
     else:
         st.warning("Dados de populacao IBGE nao disponiveis para calcular sinistralidade.")
@@ -1109,8 +1162,11 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
     col_a, col_b = st.columns([2, 1])
     with col_a:
         fig_cat = px.bar(
-            cat_df, x="Categoria", y="Quantidade",
-            color="Categoria", color_discrete_map=CATEGORY_COLORS,
+            cat_df,
+            x="Categoria",
+            y="Quantidade",
+            color="Categoria",
+            color_discrete_map=CATEGORY_COLORS,
             text="Quantidade",
         )
         fig_cat.update_layout(showlegend=False, height=350, margin={"t": 30})
@@ -1118,8 +1174,12 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
         st.plotly_chart(fig_cat, width="stretch", key="chart_cat")
     with col_b:
         fig_pie = px.pie(
-            cat_df, names="Categoria", values="Quantidade",
-            color="Categoria", color_discrete_map=CATEGORY_COLORS, hole=0.4,
+            cat_df,
+            names="Categoria",
+            values="Quantidade",
+            color="Categoria",
+            color_discrete_map=CATEGORY_COLORS,
+            hole=0.4,
         )
         fig_pie.update_layout(height=350, margin={"t": 30, "b": 30})
         fig_pie.update_traces(textinfo="percent+label", textfont_size=11)
@@ -1133,9 +1193,14 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
         natures_df.columns = ["Categoria", "Natureza", "Qtd"]
         cat_order = ["Violencia", "Roubo/Furto", "Trafico/Armas", "Outros"]
         fig_nature = px.bar(
-            natures_df, x="Qtd", y="Natureza",
-            color="Categoria", color_discrete_map=CATEGORY_COLORS,
-            orientation="h", facet_col="Categoria", facet_col_wrap=2,
+            natures_df,
+            x="Qtd",
+            y="Natureza",
+            color="Categoria",
+            color_discrete_map=CATEGORY_COLORS,
+            orientation="h",
+            facet_col="Categoria",
+            facet_col_wrap=2,
             category_orders={"Categoria": cat_order},
         )
         fig_nature.update_layout(height=600, margin={"t": 30}, showlegend=False)
@@ -1155,8 +1220,12 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
                 infra_df = pd.DataFrame(infra_data)
                 infra_df.columns = ["Categoria", "Distancia", "Qtd"]
                 fig_lit = px.bar(
-                    infra_df, x="Distancia", y="Qtd", color="Categoria",
-                    color_discrete_map=CATEGORY_COLORS, barmode="group",
+                    infra_df,
+                    x="Distancia",
+                    y="Qtd",
+                    color="Categoria",
+                    color_discrete_map=CATEGORY_COLORS,
+                    barmode="group",
                     category_orders={"Distancia": ["0-200m", "200-500m", "500-1000m", "1000m+"]},
                 )
                 fig_lit.update_layout(height=350, margin={"t": 30}, legend_title_text="")
@@ -1167,8 +1236,12 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
                 transit_df = pd.DataFrame(transit_data)
                 transit_df.columns = ["Categoria", "Distancia", "Qtd"]
                 fig_trans = px.bar(
-                    transit_df, x="Distancia", y="Qtd", color="Categoria",
-                    color_discrete_map=CATEGORY_COLORS, barmode="group",
+                    transit_df,
+                    x="Distancia",
+                    y="Qtd",
+                    color="Categoria",
+                    color_discrete_map=CATEGORY_COLORS,
+                    barmode="group",
                     category_orders={"Distancia": ["0-200m", "200-500m", "500-1000m", "1000m+"]},
                 )
                 fig_trans.update_layout(height=350, margin={"t": 30}, legend_title_text="")
@@ -1200,10 +1273,15 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
                 columns=["Condicao", "Qtd"],
             )
             fig_rain = px.bar(
-                rain_df, x="Condicao", y="Qtd", color="Condicao",
+                rain_df,
+                x="Condicao",
+                y="Qtd",
+                color="Condicao",
                 color_discrete_map={
-                    "Seco": "#ffc107", "Chuva leve": "#17a2b8",
-                    "Chuva moderada": "#007bff", "Chuva forte": "#dc3545",
+                    "Seco": "#ffc107",
+                    "Chuva leve": "#17a2b8",
+                    "Chuva moderada": "#007bff",
+                    "Chuva forte": "#dc3545",
                 },
             )
             fig_rain.update_layout(height=300, margin={"t": 30}, showlegend=False)
@@ -1232,7 +1310,8 @@ def _render_data_tab(selected_city: str) -> None:
         available_cols = {k: v for k, v in display_cols.items() if k in df.columns}
         st.dataframe(
             df[list(available_cols.keys())].rename(columns=available_cols),
-            width="stretch", hide_index=True,
+            width="stretch",
+            hide_index=True,
         )
 
         st.markdown("---")
@@ -1264,7 +1343,8 @@ def _render_data_tab(selected_city: str) -> None:
 
         st.dataframe(
             conf_display.sort_values("Score Confianca", ascending=False),
-            width="stretch", hide_index=True,
+            width="stretch",
+            hide_index=True,
         )
 
         conf_counts = df_conf["nivel_confianca"].value_counts()
@@ -1282,8 +1362,14 @@ def _render_data_tab(selected_city: str) -> None:
         if gaps:
             gaps_df = pd.DataFrame(gaps)
             gaps_df.columns = [
-                "H3", "Crimes", "Dens. Ilum.", "Dist. Ilum (m)",
-                "Dens. Onibus", "Cameras", "Dens. Noturno", "Vulnerab.",
+                "H3",
+                "Crimes",
+                "Dens. Ilum.",
+                "Dist. Ilum (m)",
+                "Dens. Onibus",
+                "Cameras",
+                "Dens. Noturno",
+                "Vulnerab.",
             ]
             st.dataframe(gaps_df, width="stretch", hide_index=True)
     else:
@@ -1447,21 +1533,28 @@ def _render_about_tab(selected_city: str) -> None:
 
             if len(categories_radar) >= 2:
                 fig_radar = go.Figure()
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=sp_vals + [sp_vals[0]],
-                    theta=categories_radar + [categories_radar[0]],
-                    fill="toself", name="Sao Paulo",
-                    line_color="#dc3545",
-                ))
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=nat_vals + [nat_vals[0]],
-                    theta=categories_radar + [categories_radar[0]],
-                    fill="toself", name="Brasil",
-                    line_color="#007bff",
-                ))
+                fig_radar.add_trace(
+                    go.Scatterpolar(
+                        r=sp_vals + [sp_vals[0]],
+                        theta=categories_radar + [categories_radar[0]],
+                        fill="toself",
+                        name="Sao Paulo",
+                        line_color="#dc3545",
+                    )
+                )
+                fig_radar.add_trace(
+                    go.Scatterpolar(
+                        r=nat_vals + [nat_vals[0]],
+                        theta=categories_radar + [categories_radar[0]],
+                        fill="toself",
+                        name="Brasil",
+                        line_color="#007bff",
+                    )
+                )
                 fig_radar.update_layout(
                     polar=dict(radialaxis=dict(visible=True)),
-                    showlegend=True, height=400,
+                    showlegend=True,
+                    height=400,
                     margin={"t": 40},
                 )
                 st.plotly_chart(fig_radar, width="stretch", key="chart_radar_national")
@@ -1538,12 +1631,10 @@ def _generate_pdf_report(city: str) -> bytes | None:
         def header(self):
             self.set_font("Helvetica", "B", 14)
             title = f"SafeStreet - Relatorio {city_cfg.name}"
-            self.cell(0, 10, title, new_x="LMARGIN",
-                      new_y="NEXT", align="C")
+            self.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT", align="C")
             self.set_font("Helvetica", "", 9)
             sub = "Pipeline de Inteligencia Espacial"
-            self.cell(0, 6, sub, new_x="LMARGIN",
-                      new_y="NEXT", align="C")
+            self.cell(0, 6, sub, new_x="LMARGIN", new_y="NEXT", align="C")
             self.ln(5)
 
         def footer(self):
@@ -1559,13 +1650,17 @@ def _generate_pdf_report(city: str) -> bytes | None:
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, "1. Resumo Geral", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, (
-        f"Cidade: {city_cfg.name}\n"
-        f"Ocorrencias noturnas: {int(stats.get('total_crimes', 0)):,}\n"
-        f"Celulas H3 analisadas: {int(stats.get('total_cells', 0)):,}\n"
-        f"Zonas de alto risco: {int(stats.get('high_risk', 0)):,}\n"
-        f"Clusters Moran HH: {int(stats.get('moran_hh', 0)):,}"
-    ))
+    pdf.multi_cell(
+        0,
+        6,
+        (
+            f"Cidade: {city_cfg.name}\n"
+            f"Ocorrencias noturnas: {int(stats.get('total_crimes', 0)):,}\n"
+            f"Celulas H3 analisadas: {int(stats.get('total_cells', 0)):,}\n"
+            f"Zonas de alto risco: {int(stats.get('high_risk', 0)):,}\n"
+            f"Clusters Moran HH: {int(stats.get('moran_hh', 0)):,}"
+        ),
+    )
     pdf.ln(3)
 
     ibge_file = Path(f"data/external/ibge_stats_{city}.json")
@@ -1584,11 +1679,15 @@ def _generate_pdf_report(city: str) -> bytes | None:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(0, 8, "2. Sinistralidade", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, (
-                f"Populacao (Censo 2022): {pop:,}\n"
-                f"Total crimes: {total:,}\n"
-                f"Taxa: {rate:.1f} crimes por 100 mil habitantes"
-            ))
+            pdf.multi_cell(
+                0,
+                6,
+                (
+                    f"Populacao (Censo 2022): {pop:,}\n"
+                    f"Total crimes: {total:,}\n"
+                    f"Taxa: {rate:.1f} crimes por 100 mil habitantes"
+                ),
+            )
             pdf.ln(3)
 
     if corr_data:
@@ -1603,9 +1702,15 @@ def _generate_pdf_report(city: str) -> bytes | None:
         )
 
         numeric_cols = [
-            "crime_count", "lighting_density", "bus_stop_density",
-            "metro_density", "camera_count", "nightlife_density",
-            "dist_nearest_lit", "dist_nearest_metro", "vulnerability_score",
+            "crime_count",
+            "lighting_density",
+            "bus_stop_density",
+            "metro_density",
+            "camera_count",
+            "nightlife_density",
+            "dist_nearest_lit",
+            "dist_nearest_metro",
+            "vulnerability_score",
         ]
         available = [c for c in numeric_cols if c in corr_df.columns]
 
@@ -1616,10 +1721,14 @@ def _generate_pdf_report(city: str) -> bytes | None:
             pdf.set_font("Helvetica", "", 9)
 
             label_map = {
-                "crime_count": "Crimes", "lighting_density": "Dens.Ilum",
-                "bus_stop_density": "Dens.Onibus", "metro_density": "Dens.Metro",
-                "camera_count": "Cameras", "nightlife_density": "Nightlife",
-                "dist_nearest_lit": "Dist.Ilum", "dist_nearest_metro": "Dist.Metro",
+                "crime_count": "Crimes",
+                "lighting_density": "Dens.Ilum",
+                "bus_stop_density": "Dens.Onibus",
+                "metro_density": "Dens.Metro",
+                "camera_count": "Cameras",
+                "nightlife_density": "Nightlife",
+                "dist_nearest_lit": "Dist.Ilum",
+                "dist_nearest_metro": "Dist.Metro",
                 "vulnerability_score": "Vulnerab.",
             }
             cm = corr_result["matrix"]
@@ -1632,9 +1741,12 @@ def _generate_pdf_report(city: str) -> bytes | None:
                         p = pv.iloc[i, j]
                         if abs(r) > 0.15:
                             sig = (
-                                "***" if p < 0.001
-                                else "**" if p < 0.01
-                                else "*" if p < 0.05
+                                "***"
+                                if p < 0.001
+                                else "**"
+                                if p < 0.01
+                                else "*"
+                                if p < 0.05
                                 else ""
                             )
                             pairs.append((label_map.get(c1, c1), label_map.get(c2, c2), r, p, sig))
@@ -1648,12 +1760,16 @@ def _generate_pdf_report(city: str) -> bytes | None:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(0, 8, "4. Regressao OLS", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, (
-                f"R²: {ols_result['r_squared']:.4f} | "
-                f"R² ajustado: {ols_result['adj_r_squared']:.4f} | "
-                f"F-stat: {ols_result['f_statistic']:.4f} | "
-                f"F p-value: {ols_result['f_p_value']:.2e}"
-            ))
+            pdf.multi_cell(
+                0,
+                6,
+                (
+                    f"R²: {ols_result['r_squared']:.4f} | "
+                    f"R² ajustado: {ols_result['adj_r_squared']:.4f} | "
+                    f"F-stat: {ols_result['f_statistic']:.4f} | "
+                    f"F p-value: {ols_result['f_p_value']:.2e}"
+                ),
+            )
             pdf.ln(2)
 
             pdf.set_font("Helvetica", "B", 10)
@@ -1676,18 +1792,23 @@ def _generate_pdf_report(city: str) -> bytes | None:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(0, 8, "5. Modelo Preditivo", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, (
-                f"Melhor modelo: {best}\n"
-                f"R² teste: {bm['r2_test']:.4f} | RMSE: {bm['rmse']:.2f} | MAE: {bm['mae']:.2f}\n"
-                f"R² CV (media±dp): {bm['r2_cv_mean']:.3f} ± {bm['r2_cv_std']:.3f}"
-            ))
+            pdf.multi_cell(
+                0,
+                6,
+                (
+                    f"Melhor modelo: {best}\n"
+                    f"R² teste: {bm['r2_test']:.4f} | RMSE: {bm['rmse']:.2f} "
+                    f"| MAE: {bm['mae']:.2f}\n"
+                    f"R² CV (media±dp): {bm['r2_cv_mean']:.3f} ± {bm['r2_cv_std']:.3f}"
+                ),
+            )
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 10)
             pdf.cell(0, 6, "Feature Importance:", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
             for fi in bm["feature_importance"][:5]:
-                pdf.multi_cell(0, 5,
-                    f"  {label_map.get(fi['feature'], fi['feature'])}: {fi['importance']:.4f}"
+                pdf.multi_cell(
+                    0, 5, f"  {label_map.get(fi['feature'], fi['feature'])}: {fi['importance']:.4f}"
                 )
             pdf.ln(3)
 
@@ -1696,30 +1817,33 @@ def _generate_pdf_report(city: str) -> bytes | None:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(0, 8, "6. Clusterizacao", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, (
-                f"K-Means: {cluster_result['n_clusters_kmeans']} clusters | "
-                f"Silhouette: {cluster_result['silhouette_score']:.3f}\n"
-                f"DBSCAN: {cluster_result['n_clusters_dbscan']} clusters | "
-                f"Pts. ruido: {cluster_result['n_noise_dbscan']}"
-            ))
+            pdf.multi_cell(
+                0,
+                6,
+                (
+                    f"K-Means: {cluster_result['n_clusters_kmeans']} clusters | "
+                    f"Silhouette: {cluster_result['silhouette_score']:.3f}\n"
+                    f"DBSCAN: {cluster_result['n_clusters_dbscan']} clusters | "
+                    f"Pts. ruido: {cluster_result['n_noise_dbscan']}"
+                ),
+            )
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 10)
             pdf.cell(0, 6, "Perfis dos Clusters:", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
             for name, info in cluster_result["centroids"].items():
-                parts = [
-                    f"{label_map.get(k, k)}={v:.2f}"
-                    for k, v in info["means"].items()
-                ]
+                parts = [f"{label_map.get(k, k)}={v:.2f}" for k, v in info["means"].items()]
                 means_str = ", ".join(parts)
                 line = f"  {name} (n={info['size']}): {means_str}"
                 pdf.multi_cell(0, 5, line)
             pdf.ln(3)
 
     pdf.set_font("Helvetica", "I", 8)
-    pdf.multi_cell(0, 5,
+    pdf.multi_cell(
+        0,
+        5,
         "\nRelatorio gerado automaticamente pelo SafeStreet Pipeline\n"
-        "Dados: SSP-SP (2013-2019) | OpenStreetMap | GeoSampa | Open-Meteo | IBGE SIDRA"
+        "Dados: SSP-SP (2013-2019) | OpenStreetMap | GeoSampa | Open-Meteo | IBGE SIDRA",
     )
 
     return bytes(pdf.output())
@@ -1785,27 +1909,31 @@ def _render_advanced_tab(selected_city: str) -> None:
             for nb in summary_df["neighborhood"].unique():
                 risk = str(gap_map.get(nb, "Medio"))
                 nb_crimes = summary_df[summary_df["neighborhood"] == nb]["crime_count"].sum()
-                nb_first_cat = (
-                    summary_df[summary_df["neighborhood"] == nb]
-                    ["crime_category"].iloc[0]
-                )
+                nb_first_cat = summary_df[summary_df["neighborhood"] == nb]["crime_category"].iloc[
+                    0
+                ]
                 sources.append(label_idx[f"C:{nb_first_cat}"])
                 targets.append(label_idx[f"R:{risk}"])
                 values.append(nb_crimes)
                 link_colors.append(risk_color_map.get(risk, "rgba(150,150,150,0.3)"))
 
-            fig_sankey = go.Figure(go.Sankey(
-                node=dict(
-                    pad=15, thickness=20,
-                    line=dict(color="black", width=0.5),
-                    label=labels,
-                    color="lightblue",
-                ),
-                link=dict(
-                    source=sources, target=targets,
-                    value=values, color=link_colors,
-                ),
-            ))
+            fig_sankey = go.Figure(
+                go.Sankey(
+                    node=dict(
+                        pad=15,
+                        thickness=20,
+                        line=dict(color="black", width=0.5),
+                        label=labels,
+                        color="lightblue",
+                    ),
+                    link=dict(
+                        source=sources,
+                        target=targets,
+                        value=values,
+                        color=link_colors,
+                    ),
+                )
+            )
             fig_sankey.update_layout(height=450, margin={"t": 30})
             st.plotly_chart(fig_sankey, width="stretch", key="chart_sankey")
         else:
@@ -1828,9 +1956,11 @@ def _render_advanced_tab(selected_city: str) -> None:
             locs_df = locs_df[locs_df["neighborhood"].isin(top_nb)]
 
             if not locs_df.empty:
-                treemap_data = locs_df.groupby(
-                    ["neighborhood", "crime_category", "nature"]
-                ).size().reset_index(name="count")
+                treemap_data = (
+                    locs_df.groupby(["neighborhood", "crime_category", "nature"])
+                    .size()
+                    .reset_index(name="count")
+                )
                 treemap_data = treemap_data.sort_values("count", ascending=False)
 
                 fig_treemap = px.treemap(
@@ -1897,22 +2027,32 @@ def _render_advanced_tab(selected_city: str) -> None:
                 node_crimes = [G.nodes[n].get("crimes", 0) for n in G.nodes()]
 
                 fig_net = go.Figure()
-                fig_net.add_trace(go.Scatter(
-                    x=edge_x, y=edge_y, mode="lines",
-                    line=dict(width=0.5, color="gray"),
-                ))
-                fig_net.add_trace(go.Scatter(
-                    x=node_x, y=node_y, mode="markers+text",
-                    text=node_text, textposition="top center",
-                    marker=dict(
-                        size=[max(8, c * 0.3) for c in node_crimes],
-                        color=node_crimes,
-                        colorscale="YlOrRd",
-                        colorbar=dict(title="Crimes"),
-                    ),
-                ))
+                fig_net.add_trace(
+                    go.Scatter(
+                        x=edge_x,
+                        y=edge_y,
+                        mode="lines",
+                        line=dict(width=0.5, color="gray"),
+                    )
+                )
+                fig_net.add_trace(
+                    go.Scatter(
+                        x=node_x,
+                        y=node_y,
+                        mode="markers+text",
+                        text=node_text,
+                        textposition="top center",
+                        marker=dict(
+                            size=[max(8, c * 0.3) for c in node_crimes],
+                            color=node_crimes,
+                            colorscale="YlOrRd",
+                            colorbar=dict(title="Crimes"),
+                        ),
+                    )
+                )
                 fig_net.update_layout(
-                    height=500, margin={"t": 30, "b": 30, "l": 30, "r": 30},
+                    height=500,
+                    margin={"t": 30, "b": 30, "l": 30, "r": 30},
                     showlegend=False,
                     xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
@@ -1947,31 +2087,75 @@ def main() -> None:
     _render_metrics(selected_city, selected_year, selected_month)
 
     tab_names = [
-        "Mapa", "Temporal", "Heatmap", "Estatistica",
-        "Analise", "Dados", "Avancado", "Sobre",
+        "Mapa",
+        "Temporal",
+        "Heatmap",
+        "Estatistica",
+        "Analise",
+        "Dados",
+        "Avancado",
+        "Sobre",
     ]
     tabs = st.tabs(tab_names)
     tab_map, tab_temporal, tab_heatmap = tabs[0], tabs[1], tabs[2]
     tab_stats, tab_analysis, tab_data = tabs[3], tabs[4], tabs[5]
     tab_adv, tab_about = tabs[6], tabs[7]
 
+    def _safe_render(label: str, fn, *args) -> None:
+        try:
+            fn(*args)
+        except Exception as exc:
+            logger.exception("Erro na aba {}: {}", label, exc)
+            st.error(f"Erro ao carregar a aba {label}: {exc}")
+
     with tab_map:
-        _render_map_tab(selected_city, selected_year, selected_month,
-                        selected_category, selected_neighborhood)
+        _safe_render(
+            "Mapa",
+            _render_map_tab,
+            selected_city,
+            selected_year,
+            selected_month,
+            selected_category,
+            selected_neighborhood,
+        )
     with tab_temporal:
-        _render_temporal_tab(selected_city, selected_year, selected_month)
+        _safe_render(
+            "Temporal",
+            _render_temporal_tab,
+            selected_city,
+            selected_year,
+            selected_month,
+        )
     with tab_heatmap:
-        _render_heatmap_tab(selected_city, selected_year, selected_month)
+        _safe_render(
+            "Heatmap",
+            _render_heatmap_tab,
+            selected_city,
+            selected_year,
+            selected_month,
+        )
     with tab_stats:
-        _render_statistics_tab(selected_city, selected_year, selected_month)
+        _safe_render(
+            "Estatistica",
+            _render_statistics_tab,
+            selected_city,
+            selected_year,
+            selected_month,
+        )
     with tab_analysis:
-        _render_analysis_tab(selected_city, selected_year, selected_month)
+        _safe_render(
+            "Analise",
+            _render_analysis_tab,
+            selected_city,
+            selected_year,
+            selected_month,
+        )
     with tab_data:
-        _render_data_tab(selected_city)
+        _safe_render("Dados", _render_data_tab, selected_city)
     with tab_adv:
-        _render_advanced_tab(selected_city)
+        _safe_render("Avancado", _render_advanced_tab, selected_city)
     with tab_about:
-        _render_about_tab(selected_city)
+        _safe_render("Sobre", _render_about_tab, selected_city)
 
 
 if __name__ == "__main__":

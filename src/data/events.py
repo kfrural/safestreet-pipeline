@@ -26,9 +26,7 @@ def fetch_cultural_venues(city_name: str) -> dict[str, GeoDataFrame]:
         if isinstance(tag_values, list):
             for val in tag_values:
                 try:
-                    gdf = ox.features_from_place(
-                        city_name, tags={tag_key: val}
-                    )
+                    gdf = ox.features_from_place(city_name, tags={tag_key: val})
                     gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
                     if not gdf.empty:
                         gdf = gdf.copy()
@@ -36,17 +34,15 @@ def fetch_cultural_venues(city_name: str) -> dict[str, GeoDataFrame]:
                         all_frames.append(gdf)
                         logger.info(
                             "{} {}: {} venues",
-                            tag_key, val, len(gdf),
+                            tag_key,
+                            val,
+                            len(gdf),
                         )
                 except Exception as e:
-                    logger.warning(
-                        "Erro ao buscar {}={}: {}", tag_key, val, e
-                    )
+                    logger.warning("Erro ao buscar {}={}: {}", tag_key, val, e)
         else:
             try:
-                gdf = ox.features_from_place(
-                    city_name, tags={tag_key: tag_values}
-                )
+                gdf = ox.features_from_place(city_name, tags={tag_key: tag_values})
                 gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
                 if not gdf.empty:
                     gdf = gdf.copy()
@@ -54,15 +50,16 @@ def fetch_cultural_venues(city_name: str) -> dict[str, GeoDataFrame]:
                     all_frames.append(gdf)
                     logger.info(
                         "{} {}: {} venues",
-                        tag_key, tag_values, len(gdf),
+                        tag_key,
+                        tag_values,
+                        len(gdf),
                     )
             except Exception as e:
-                logger.warning(
-                    "Erro ao buscar {}={}: {}", tag_key, tag_values, e
-                )
+                logger.warning("Erro ao buscar {}={}: {}", tag_key, tag_values, e)
 
     if all_frames:
         import pandas as pd
+
         combined = pd.concat(all_frames, ignore_index=True)
         if "osmid" in combined.columns:
             combined = combined.drop_duplicates(subset=["osmid"])

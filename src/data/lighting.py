@@ -51,7 +51,9 @@ def fetch_lighting_from_geosampa(
             data = resp.json()
         except Exception as e:
             logger.warning(
-                "Erro WFS GeoSampa (offset {}): {}", start_index, e,
+                "Erro WFS GeoSampa (offset {}): {}",
+                start_index,
+                e,
             )
             break
 
@@ -95,15 +97,14 @@ def fetch_lighting_from_geosampa(
 
     lons = gdf.geometry.x.values
     lats = gdf.geometry.y.values
-    sp_mask = (
-        (lons >= -46.90) & (lons <= -46.30)
-        & (lats >= -23.85) & (lats <= -23.30)
-    )
+    sp_mask = (lons >= -46.90) & (lons <= -46.30) & (lats >= -23.85) & (lats <= -23.30)
     gdf = gdf[sp_mask].reset_index(drop=True)
     gdf["source"] = "geosampa"
     gdf["infra_type"] = "street_lamp"
     logger.info(
-        "Filtrado para SP: {} de {} pontos", len(gdf), len(all_coords),
+        "Filtrado para SP: {} de {} pontos",
+        len(gdf),
+        len(all_coords),
     )
 
     if cache_dir:
@@ -130,14 +131,16 @@ def count_lighting_by_h3(
     from src.spatial.h3_indexer import add_h3_column
 
     lighting_h3 = add_h3_column(lighting_gdf, resolution=9)
-    counts = lighting_h3.groupby("h3_index").size().reset_index(
-        name="lighting_official_count",
+    counts = (
+        lighting_h3.groupby("h3_index")
+        .size()
+        .reset_index(
+            name="lighting_official_count",
+        )
     )
 
     result = h3_cells.merge(counts, on="h3_index", how="left")
-    result["lighting_official_count"] = (
-        result["lighting_official_count"].fillna(0).astype(int)
-    )
+    result["lighting_official_count"] = result["lighting_official_count"].fillna(0).astype(int)
 
     logger.info(
         "Iluminacao oficial: {} celulas H3 com pontos",

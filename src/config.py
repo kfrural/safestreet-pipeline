@@ -7,6 +7,7 @@ from typing import Literal
 try:
     from pydantic import Field, field_validator
     from pydantic_settings import BaseSettings, SettingsConfigDict
+
     _HAS_PYDANTIC = True
 except Exception:
     _HAS_PYDANTIC = False

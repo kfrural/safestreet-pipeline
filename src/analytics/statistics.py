@@ -182,10 +182,7 @@ def run_ols_regression(
         return {"error": "Insufficient data points (< 10)"}
 
     feature_cols = [c for c in data.columns if c != dependent]
-    feature_cols = [
-        c for c in feature_cols
-        if data[c].std() > 1e-10 and data[c].nunique() > 1
-    ]
+    feature_cols = [c for c in feature_cols if data[c].std() > 1e-10 and data[c].nunique() > 1]
     if not feature_cols:
         return {"error": "No varying features after filtering"}
 
@@ -201,15 +198,13 @@ def run_ols_regression(
     y_pred = X_with_const @ beta
     residuals = y - y_pred
 
-    ss_res = np.sum(residuals ** 2)
+    ss_res = np.sum(residuals**2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
     n = len(y)
     k = X_with_const.shape[1]
-    adj_r_squared = (
-        1 - ((1 - r_squared) * (n - 1) / (n - k - 1)) if n > k + 1 else r_squared
-    )
+    adj_r_squared = 1 - ((1 - r_squared) * (n - 1) / (n - k - 1)) if n > k + 1 else r_squared
 
     mse = ss_res / (n - k) if n > k else ss_res
     try:
@@ -233,9 +228,7 @@ def run_ols_regression(
             "stars": sig,
         }
 
-    f_stat = (
-        ((ss_tot - ss_res) / (k - 1)) / (ss_res / (n - k)) if n > k + 1 else 0
-    )
+    f_stat = ((ss_tot - ss_res) / (k - 1)) / (ss_res / (n - k)) if n > k + 1 else 0
     f_p = 1 - stats.f.cdf(f_stat, k - 1, n - k) if n > k + 1 else 1
 
     return {
@@ -276,7 +269,10 @@ def compute_random_forest_importance(
     y = data[target].values
 
     rf = RandomForestRegressor(
-        n_estimators=100, max_depth=10, random_state=42, n_jobs=-1,
+        n_estimators=100,
+        max_depth=10,
+        random_state=42,
+        n_jobs=-1,
     )
     rf.fit(X, y)
 
@@ -285,10 +281,12 @@ def compute_random_forest_importance(
 
     result_features = []
     for idx in indices:
-        result_features.append({
-            "feature": available[idx],
-            "importance": round(float(importances[idx]), 4),
-        })
+        result_features.append(
+            {
+                "feature": available[idx],
+                "importance": round(float(importances[idx]), 4),
+            }
+        )
 
     return {
         "r_squared_train": round(float(rf.score(X, y)), 4),
@@ -352,24 +350,26 @@ def compute_autocorrelation(
     for lag in range(1, min(max_lag + 1, n)):
         if lag >= n:
             break
-        c = np.sum((values[:n - lag] - mean) * (values[lag:] - mean)) / n
+        c = np.sum((values[: n - lag] - mean) * (values[lag:] - mean)) / n
         acf = c / var
 
         se = 1 / np.sqrt(n)
         sig = abs(acf) > 1.96 * se
 
-        results.append({
-            "lag": lag,
-            "acf": round(float(acf), 4),
-            "significant": sig,
-        })
+        results.append(
+            {
+                "lag": lag,
+                "acf": round(float(acf), 4),
+                "significant": sig,
+            }
+        )
 
     return results
 
 
 def run_durbin_watson(residuals: np.ndarray) -> dict[str, Any]:
     diff = np.diff(residuals)
-    dw = np.sum(diff ** 2) / np.sum(residuals ** 2)
+    dw = np.sum(diff**2) / np.sum(residuals**2)
 
     if dw < 1.5:
         interpretation = "Autocorrelacao positiva"
@@ -405,10 +405,7 @@ def train_risk_predictor(
         return {"error": "Target not found"}
 
     available = [c for c in data.columns if c != target]
-    available = [
-        c for c in available
-        if data[c].std() > 1e-10 and data[c].nunique() > 1
-    ]
+    available = [c for c in available if data[c].std() > 1e-10 and data[c].nunique() > 1]
     if len(available) < 2 or len(data) < 20:
         return {"error": "Dados insuficientes para modelo preditivo (< 20 obs ou < 2 features)"}
 
@@ -416,7 +413,10 @@ def train_risk_predictor(
     y = data[target].values
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42,
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
     )
 
     scaler = StandardScaler()
@@ -425,10 +425,16 @@ def train_risk_predictor(
 
     models = {
         "Random Forest": RandomForestRegressor(
-            n_estimators=200, max_depth=12, random_state=42, n_jobs=-1,
+            n_estimators=200,
+            max_depth=12,
+            random_state=42,
+            n_jobs=-1,
         ),
         "Gradient Boosting": GradientBoostingRegressor(
-            n_estimators=200, max_depth=5, learning_rate=0.1, random_state=42,
+            n_estimators=200,
+            max_depth=5,
+            learning_rate=0.1,
+            random_state=42,
         ),
     }
 
@@ -541,25 +547,21 @@ def cluster_crime_patterns(
         cluster_data = data[mask]
         centroids[f"Cluster {c}"] = {
             "size": int(mask.sum()),
-            "means": {
-                col: round(float(cluster_data[col].mean()), 4)
-                for col in available
-            },
+            "means": {col: round(float(cluster_data[col].mean()), 4) for col in available},
         }
 
     silhouette = 0.0
     if actual_k >= 2 and len(data) > actual_k:
         from sklearn.metrics import silhouette_score
+
         silhouette = float(silhouette_score(X_scaled, kmeans_labels))
 
     result_df = (
-        df[feature_cols].copy()
-        if all(c in df.columns for c in feature_cols)
-        else data.copy()
+        df[feature_cols].copy() if all(c in df.columns for c in feature_cols) else data.copy()
     )
     result_df = result_df.iloc[data.index].reset_index(drop=True)
-    result_df["kmeans_cluster"] = kmeans_labels[:len(result_df)]
-    result_df["dbscan_cluster"] = db_labels[:len(result_df)]
+    result_df["kmeans_cluster"] = kmeans_labels[: len(result_df)]
+    result_df["dbscan_cluster"] = db_labels[: len(result_df)]
 
     cluster_names = {
         0: "Baixo risco",
@@ -574,8 +576,15 @@ def cluster_crime_patterns(
             mean_crimes.append((c, float(data.loc[data.index[mask], "crime_count"].mean())))
         mean_crimes.sort(key=lambda x: x[1])
         name_map = {}
-        level_names = ["Baixo risco", "Risco moderado", "Alto risco", "Critico",
-                       "Muito alto", "Extremo", "Severo"]
+        level_names = [
+            "Baixo risco",
+            "Risco moderado",
+            "Alto risco",
+            "Critico",
+            "Muito alto",
+            "Extremo",
+            "Severo",
+        ]
         for rank, (c, _) in enumerate(mean_crimes):
             name_map[c] = level_names[min(rank, len(level_names) - 1)]
         centroids_renamed = {}
@@ -666,7 +675,9 @@ def compute_sinistrality_by_category(
     results = {}
     for cat, count in df[category_col].value_counts().items():
         results[cat] = compute_sinistrality_index(
-            int(count), population, period_years,
+            int(count),
+            population,
+            period_years,
         )
 
     total = compute_sinistrality_index(len(df), population, period_years)

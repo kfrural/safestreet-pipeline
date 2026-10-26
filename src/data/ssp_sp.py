@@ -37,8 +37,7 @@ def download_spsafe_dataset(
     try:
         with zipfile.ZipFile(zip_path) as zf:
             csv_files = [
-                f for f in zf.namelist()
-                if f.endswith(".csv") and not f.startswith("__MACOSX")
+                f for f in zf.namelist() if f.endswith(".csv") and not f.startswith("__MACOSX")
             ]
             logger.info("Arquivos CSV no SPSafe: {}", csv_files)
 
@@ -124,8 +123,13 @@ def merge_ssp_datasets(
             df = normalize_spsafe_columns(df)
 
             if "cidade" in df.columns:
-                sp_mask = df["cidade"].str.upper().str.contains(
-                    "SAO PAULO|S.PAULO|SÃO PAULO", na=False,
+                sp_mask = (
+                    df["cidade"]
+                    .str.upper()
+                    .str.contains(
+                        "SAO PAULO|S.PAULO|SÃO PAULO",
+                        na=False,
+                    )
                 )
                 df = df[sp_mask]
 
@@ -134,10 +138,7 @@ def merge_ssp_datasets(
 
             if "latitude" in df.columns and "longitude" in df.columns:
                 df = df.dropna(subset=["latitude", "longitude"])
-                df = df[
-                    (df["latitude"].abs() < 90)
-                    & (df["longitude"].abs() < 180)
-                ]
+                df = df[(df["latitude"].abs() < 90) & (df["longitude"].abs() < 180)]
 
             new_frames.append(df)
             logger.info("SPSafe {} OK: {} registros SP", csv_file.name, len(df))

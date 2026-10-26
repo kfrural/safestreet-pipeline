@@ -7,18 +7,54 @@ from xml.etree import ElementTree
 from loguru import logger
 
 POSITIVE_KEYWORDS = [
-    "seguranca", "seguro", "melhoria", "investimento", "iluminacao",
-    "reducao", "queda", "diminuiu", "menos crimes", "paz", "protecao",
-    "cameras", "patrulha", "policiamento", "acao", "programa",
-    "seguranca publica", "qualidade de vida", "revitalizacao",
+    "seguranca",
+    "seguro",
+    "melhoria",
+    "investimento",
+    "iluminacao",
+    "reducao",
+    "queda",
+    "diminuiu",
+    "menos crimes",
+    "paz",
+    "protecao",
+    "cameras",
+    "patrulha",
+    "policiamento",
+    "acao",
+    "programa",
+    "seguranca publica",
+    "qualidade de vida",
+    "revitalizacao",
 ]
 
 NEGATIVE_KEYWORDS = [
-    "crime", "assassinato", "homicidio", "roubo", "furto", "latrocinio",
-    "violencia", "agressao", "estupro", "sequestro", "tráfico",
-    "tiroteio", "mortes", "vitimas", "perigo", "inseguranca",
-    "descaso", "falta", "ausencia", "abandono", "negligencia",
-    "escalada", "aumento", "surto", "crise", "alerta",
+    "crime",
+    "assassinato",
+    "homicidio",
+    "roubo",
+    "furto",
+    "latrocinio",
+    "violencia",
+    "agressao",
+    "estupro",
+    "sequestro",
+    "tráfico",
+    "tiroteio",
+    "mortes",
+    "vitimas",
+    "perigo",
+    "inseguranca",
+    "descaso",
+    "falta",
+    "ausencia",
+    "abandono",
+    "negligencia",
+    "escalada",
+    "aumento",
+    "surto",
+    "crise",
+    "alerta",
 ]
 
 SP_NEWS_RSS = [
@@ -77,15 +113,17 @@ def fetch_rss_headlines(
                 full_text = f"{title} {desc}".strip()
                 if full_text:
                     sentiment = _simple_sentiment(full_text)
-                    headlines.append({
-                        "title": re.sub(r"<[^>]+>", "", title).strip(),
-                        "source": url.split("/")[2],
-                        "published": pub,
-                        "sentiment_score": sentiment["score"],
-                        "sentiment_label": sentiment["label"],
-                        "positive_hits": sentiment["pos"],
-                        "negative_hits": sentiment["neg"],
-                    })
+                    headlines.append(
+                        {
+                            "title": re.sub(r"<[^>]+>", "", title).strip(),
+                            "source": url.split("/")[2],
+                            "published": pub,
+                            "sentiment_score": sentiment["score"],
+                            "sentiment_label": sentiment["label"],
+                            "positive_hits": sentiment["pos"],
+                            "negative_hits": sentiment["neg"],
+                        }
+                    )
             logger.info("RSS {}: {} headlines", url.split("/")[2], len(items))
         except Exception as e:
             logger.warning("Erro ao buscar RSS {}: {}", url, e)
