@@ -27,7 +27,7 @@ def create_vulnerability_map(
     h3_data: list[dict[str, Any]],
     city_config: CityConfig | None = None,
     layers: dict[str, bool] | None = None,
-    tiles: str = "cartodb darkmatter",
+    tiles: str = "OpenStreetMap",
     crime_locations: list[dict[str, Any]] | None = None,
 ) -> folium.Map:
     if city_config:

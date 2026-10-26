@@ -63,7 +63,7 @@ services:
     container_name: safestreet-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8002:8000"
     depends_on:
       postgis:
         condition: service_healthy
