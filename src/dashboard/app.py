@@ -300,6 +300,32 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
 def _render_metrics(selected_city: str, year: int | None, month: int | None) -> None:
     city_cfg = get_city(selected_city)
     stats = load_city_stats(selected_city)
+    if not stats or (int(stats.get("total_crimes", 0)) == 0 and int(stats.get("total_cells", 0)) == 0):
+        try:
+            import pandas as _pd
+            from pathlib import Path as _Path
+
+            _root = Path(__file__).resolve().parents[2]
+            _csv = _root / "data" / "processed" / "h3_analysis_results_sao-paulo.csv"
+            if not _csv.exists():
+                for _p in (_root / "data" / "processed").glob("h3_analysis_results*.csv"):
+                    _csv = _p
+                    break
+            if _csv.exists():
+                _df = _pd.read_csv(_csv)
+                if "city" in _df.columns:
+                    _df = _df[_df["city"] == selected_city]
+                _tc = int(_df["crime_count"].fillna(0).sum()) if "crime_count" in _df.columns else len(_df)
+                _tcell = len(_df)
+                _hr = 0
+                if "vulnerability_score" in _df.columns:
+                    _hr = int((_df["vulnerability_score"].fillna(0).astype(float) >= 0.7).sum())
+                _mh = 0
+                if "moran_cluster" in _df.columns:
+                    _mh = int(_df["moran_cluster"].astype(str).isin(["HH", "High-High"]).sum())
+                stats = {"total_crimes": _tc, "total_cells": _tcell, "high_risk": _hr, "moran_hh": _mh}
+        except Exception as e:
+            logger.debug("Falha ao calcular stats direto: {}", e)
 
     title = city_cfg.name
     if year:
@@ -350,7 +376,26 @@ def _render_map_tab(
 ) -> None:
     st.subheader("Mapa de Vulnerabilidade")
 
-    data = load_h3_cells(city=selected_city)
+    data = load_h3_cells(selected_city)
+    if not data:
+        try:
+            import pandas as _pd
+            from pathlib import Path as _Path
+
+            _root = Path(__file__).resolve().parents[2]
+            _csv = _root / "data" / "processed" / "h3_analysis_results_sao-paulo.csv"
+            if not _csv.exists():
+                for _p in (_root / "data" / "processed").glob("h3_analysis_results*.csv"):
+                    _csv = _p
+                    break
+            if _csv.exists():
+                _df = _pd.read_csv(_csv)
+                if "city" in _df.columns:
+                    _df = _df[_df["city"] == selected_city]
+                _df = _df.replace({_pd.NA: None})
+                data = _df.to_dict("records")
+        except Exception as e:
+            logger.debug("Falha ao ler CSV direto: {}", e)
     if not data:
         st.info("Nenhum dado disponivel. Execute o pipeline primeiro.")
         return
