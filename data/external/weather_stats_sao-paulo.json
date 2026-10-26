@@ -1,0 +1,13 @@
+{
+  "total_crimes": 12471,
+  "rainy_crimes": 3492,
+  "dry_crimes": 8979,
+  "rain_pct": 28.0,
+  "avg_temp": 20.8,
+  "by_rain_category": {
+    "Seco": 8979,
+    "Chuva leve": 2154,
+    "Chuva moderada": 982,
+    "Chuva forte": 356
+  }
+}

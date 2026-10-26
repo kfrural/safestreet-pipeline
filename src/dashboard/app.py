@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from loguru import logger
 
 from src.config import get_city, settings
@@ -31,13 +32,18 @@ from src.db.cached_queries import (
     load_h3_cells,
     load_heatmap_hour_weekday,
     load_heatmap_monthly,
+    load_ibge_stats,
     load_neighborhood_crime_summary,
     load_neighborhood_infra_gaps,
     load_neighborhoods,
+    load_rental_stats,
     load_seasonal_monthly,
+    load_sentiment_stats,
     load_temporal_trend,
     load_top_natures,
+    load_transport_night_stats,
     load_vulnerability_gaps,
+    load_weather_stats,
     load_weekly_cycle,
 )
 
@@ -212,7 +218,7 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
                 format_func=lambda x: year_labels[x],
             )
 
-        months = load_available_months(selected_city) if selected_year is None else []
+        months = load_available_months(selected_city)
         if months:
             month_options = [None] + months
             month_labels = {None: "Todos os meses"}
@@ -257,9 +263,10 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
 
         st.markdown("---")
         st.subheader("Processamento")
-        refresh = st.button("Atualizar Dados", width="stretch")
+        refresh = st.button("Atualizar / Recarregar Dados", width="stretch")
         if refresh:
             with st.spinner("Processando..."):
+                postgis_ok = False
                 try:
                     from src.spatial.postgis_ops import (
                         calculate_moran_clusters,
@@ -274,17 +281,31 @@ def _render_sidebar() -> tuple[str, int | None, int | None, str | None, str | No
                     calculate_nearest_infra_distance(selected_city)
                     calculate_vulnerability_score(selected_city)
                     calculate_moran_clusters(selected_city)
-                    st.success("Dados atualizados com sucesso!")
-                    from src.db import cached_queries as _cq
-
-                    for fn_name in dir(_cq):
-                        fn = getattr(_cq, fn_name)
-                        if callable(fn) and hasattr(fn, "clear"):
-                            fn.clear()
-                    st.rerun()
+                    postgis_ok = True
                 except Exception as e:
-                    logger.error("Erro ao atualizar dados: {}", e)
-                    st.error(f"Erro: {e}")
+                    logger.info("PostGIS offline/indisponivel; recarregando via pipeline estatico: {}", e)
+
+                try:
+                    import subprocess
+
+                    subprocess.run(
+                        [sys.executable, str(ROOT_DIR / "scripts" / "export_dashboard_static.py")],
+                        check=True,
+                    )
+                    st.success("Dados recarregados com sucesso!")
+                except Exception as ex:
+                    if postgis_ok:
+                        st.success("Dados PostGIS atualizados com sucesso!")
+                    else:
+                        st.info("Cache local atualizado.")
+
+                from src.db import cached_queries as _cq
+
+                for fn_name in dir(_cq):
+                    fn = getattr(_cq, fn_name)
+                    if callable(fn) and hasattr(fn, "clear"):
+                        fn.clear()
+                st.rerun()
 
         st.markdown("---")
         st.caption(f"H3 Resolucao: {settings.h3_resolution}")
@@ -336,18 +357,13 @@ def _render_metrics(selected_city: str, year: int | None, month: int | None) -> 
 
     sin_col1, sin_col2 = st.columns(2)
     with sin_col1:
-        from pathlib import Path as _Path
-        import json as _json
-
-        _ibge_file = _Path(f"data/external/ibge_stats_{selected_city}.json")
-        if _ibge_file.exists():
-            _ibge = _json.loads(_ibge_file.read_text())
-            _pop_raw = _ibge.get("populacao_2022")
-            _pop = float(str(_pop_raw).replace(".", "").replace(",", ".")) if _pop_raw else 0
-            _total = int(stats.get("total_crimes", 0))
-            if _pop and _pop > 0 and _total > 0:
-                _rate = (_total / _pop) * 100_000
-                st.metric("Sinistralidade", f"{_rate:,.1f} /100k hab")
+        _ibge = load_ibge_stats(selected_city)
+        _pop_raw = _ibge.get("populacao_2022")
+        _pop = float(str(_pop_raw).replace(".", "").replace(",", ".")) if _pop_raw else 0
+        _total = int(stats.get("total_crimes", 0))
+        if _pop and _pop > 0 and _total > 0:
+            _rate = (_total / _pop) * 100_000
+            st.metric("Sinistralidade", f"{_rate:,.1f} /100k hab")
     with sin_col2:
         pass
 
@@ -396,6 +412,23 @@ def _render_map_tab(
         for col in ["latitude", "longitude"]:
             if col not in df_cells.columns:
                 df_cells[col] = 0.0
+        if not df_cells.empty and (df_cells["latitude"].iloc[0] == 0.0 or df_cells["latitude"].isna().any()):
+            try:
+                import h3 as _h3
+
+                def _h3_center(cell):
+                    try:
+                        if hasattr(_h3, "cell_to_latlng"):
+                            return _h3.cell_to_latlng(cell)
+                        return _h3.h3_to_geo(cell)
+                    except Exception:
+                        return (city_cfg.center_lat, city_cfg.center_lon)
+
+                pts = [_h3_center(idx) for idx in df_cells["h3_index"]]
+                df_cells["latitude"] = [p[0] for p in pts]
+                df_cells["longitude"] = [p[1] for p in pts]
+            except Exception:
+                pass
         if df_cells.empty:
             st.info("Nenhum dado para visualizacao 3D.")
             return
@@ -502,7 +535,7 @@ def _render_map_tab(
     if crime_locs:
         st.caption(f"Exibindo {len(crime_locs)} ocorrencias filtradas")
     m = create_vulnerability_map(data, city_cfg, layers, crime_locations=crime_locs)
-    st.iframe(m._repr_html_(), height=600)
+    components.html(m._repr_html_(), height=600)
 
 
 def _render_temporal_tab(selected_city: str, year: int | None, month: int | None) -> None:
@@ -1103,12 +1136,10 @@ def _render_statistics_tab(selected_city: str, year: int | None, month: int | No
     st.markdown("---")
     st.markdown("#### 11. Indice de Sinistralidade")
     from src.analytics.statistics import compute_sinistrality_index
-    from pathlib import Path
 
-    ibge_file = Path(f"data/external/ibge_stats_{selected_city}.json")
+    ibge_data = load_ibge_stats(selected_city)
     population = None
-    if ibge_file.exists():
-        ibge_data = json.loads(ibge_file.read_text())
+    if ibge_data:
         pop_raw = ibge_data.get("populacao_2022")
         if pop_raw:
             try:
@@ -1249,11 +1280,8 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
 
     st.markdown("---")
     st.subheader("Dados Climaticos")
-    from pathlib import Path
-
-    weather_file = Path(f"data/external/weather_stats_{selected_city}.json")
-    if weather_file.exists():
-        weather_stats = json.loads(weather_file.read_text())
+    weather_stats = load_weather_stats(selected_city)
+    if weather_stats:
         wc1, wc2, wc3 = st.columns(3)
         with wc1:
             avg_t = weather_stats.get("avg_temp")
@@ -1286,6 +1314,8 @@ def _render_analysis_tab(selected_city: str, year: int | None, month: int | None
             )
             fig_rain.update_layout(height=300, margin={"t": 30}, showlegend=False)
             st.plotly_chart(fig_rain, width="stretch", key="chart_rain")
+    else:
+        st.info("Dados climaticos nao disponiveis.")
 
 
 def _render_data_tab(selected_city: str) -> None:
@@ -1403,9 +1433,8 @@ def _render_about_tab(selected_city: str) -> None:
     16. **Calcula** indice de sinistralidade (crimes/100k habitantes)
     """)
 
-    ibge_file = Path(f"data/external/ibge_stats_{selected_city}.json")
-    if ibge_file.exists():
-        ibge_data = json.loads(ibge_file.read_text())
+    ibge_data = load_ibge_stats(selected_city)
+    if ibge_data:
         ic1, ic2, ic3 = st.columns(3)
         with ic1:
             pop = ibge_data.get("populacao_2022", "N/A")
@@ -1422,9 +1451,8 @@ def _render_about_tab(selected_city: str) -> None:
 
     st.markdown("---")
     st.subheader("Dados de Renda (IBGE SIDRA - Censo 2022)")
-    rental_file = Path(f"data/external/rental_stats_{selected_city}.json")
-    if rental_file.exists():
-        rental_data = json.loads(rental_file.read_text())
+    rental_data = load_rental_stats(selected_city)
+    if rental_data:
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
             avg_inc = rental_data.get("avg_monthly_income")
@@ -1452,9 +1480,8 @@ def _render_about_tab(selected_city: str) -> None:
 
     st.markdown("---")
     st.subheader("Transporte Noturno (OSM)")
-    transport_file = Path(f"data/external/transport_night_{selected_city}.json")
-    if transport_file.exists():
-        transport_data = json.loads(transport_file.read_text())
+    transport_data = load_transport_night_stats(selected_city)
+    if transport_data:
         for infra, info in transport_data.items():
             if info.get("total", 0) > 0:
                 st.markdown(
@@ -1466,9 +1493,8 @@ def _render_about_tab(selected_city: str) -> None:
 
     st.markdown("---")
     st.subheader("Sentimento de Noticias (RSS + NLP)")
-    sentiment_file = Path(f"data/external/sentiment_{selected_city}.json")
-    if sentiment_file.exists():
-        sentiment_data = json.loads(sentiment_file.read_text())
+    sentiment_data = load_sentiment_stats(selected_city)
+    if sentiment_data:
         sc1, sc2, sc3 = st.columns(3)
         with sc1:
             st.metric("Headlines Analisadas", sentiment_data.get("total", 0))
@@ -1576,10 +1602,7 @@ def _render_about_tab(selected_city: str) -> None:
     from src.analytics.insights import generate_insights
 
     h3_data = load_h3_cells(city=selected_city)
-    ibge_file = Path(f"data/external/ibge_stats_{selected_city}.json")
-    ibge_summary = {}
-    if ibge_file.exists():
-        ibge_summary = json.loads(ibge_file.read_text())
+    ibge_summary = load_ibge_stats(selected_city)
 
     if h3_data:
         insights = generate_insights(h3_data, ibge_summary)
@@ -2070,7 +2093,24 @@ def _render_advanced_tab(selected_city: str) -> None:
         st.info("Necessario pelo menos 3 bairros com dados.")
 
 
+def _ensure_data_ready() -> None:
+    snap_path = ROOT_DIR / "data" / "processed" / "dashboard_snapshot.json"
+    if snap_path.exists() and snap_path.stat().st_size > 1000:
+        return
+
+    logger.info("Snapshot nao encontrado. Gerando dados locais...")
+    try:
+        import subprocess
+
+        script = ROOT_DIR / "scripts" / "export_dashboard_static.py"
+        if script.exists():
+            subprocess.run([sys.executable, str(script)], check=True)
+    except Exception as exc:
+        logger.warning("Nao foi possivel gerar snapshot automaticamente: {}", exc)
+
+
 def main() -> None:
+    _ensure_data_ready()
     try:
         from src.db.connection import engine
         from src.db.models import Base

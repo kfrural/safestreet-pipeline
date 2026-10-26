@@ -1,0 +1,18 @@
+{
+  "Metrô / Trem": {
+    "total": 184,
+    "night_open": 184
+  },
+  "Linhas Noturnas de Ônibus (Noturno SPTrans)": {
+    "total": 150,
+    "night_open": 150
+  },
+  "Terminais Urbanos": {
+    "total": 31,
+    "night_open": 31
+  },
+  "Paradas com Iluminação": {
+    "total": 9420,
+    "night_open": 9420
+  }
+}

@@ -29,11 +29,15 @@ ENV/
 
 # Data
 data/raw/*
-data/processed/*
-data/external/*
 !data/raw/.gitkeep
+data/processed/*
 !data/processed/.gitkeep
+!data/processed/dashboard_snapshot.json
+!data/processed/crime_records_classified.csv
+!data/processed/h3_analysis_results*.csv
+data/external/*
 !data/external/.gitkeep
+!data/external/*.json
 
 # Notebooks checkpoint
 .ipynb_checkpoints/

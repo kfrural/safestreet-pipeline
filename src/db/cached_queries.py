@@ -373,3 +373,74 @@ def load_correlation_data(city: str) -> list[dict[str, Any]]:
     if snap.get("correlation_data"):
         return snap["correlation_data"]
     return _safe(get_correlation_data, city, default=[]) or []
+
+
+@st.cache_data(ttl=_TTL, show_spinner=False)
+def load_ibge_stats(city: str) -> dict[str, Any]:
+    snap = _snapshot()
+    if snap.get("ibge_stats"):
+        return snap["ibge_stats"]
+    ibge_file = _EXTERNAL / f"ibge_stats_{city}.json"
+    if ibge_file.exists():
+        try:
+            return json.loads(ibge_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+@st.cache_data(ttl=_TTL, show_spinner=False)
+def load_weather_stats(city: str) -> dict[str, Any]:
+    snap = _snapshot()
+    if snap.get("weather_stats"):
+        return snap["weather_stats"]
+    w_file = _EXTERNAL / f"weather_stats_{city}.json"
+    if w_file.exists():
+        try:
+            return json.loads(w_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+@st.cache_data(ttl=_TTL, show_spinner=False)
+def load_rental_stats(city: str) -> dict[str, Any]:
+    snap = _snapshot()
+    if snap.get("rental_stats"):
+        return snap["rental_stats"]
+    r_file = _EXTERNAL / f"rental_stats_{city}.json"
+    if r_file.exists():
+        try:
+            return json.loads(r_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+@st.cache_data(ttl=_TTL, show_spinner=False)
+def load_transport_night_stats(city: str) -> dict[str, Any]:
+    snap = _snapshot()
+    if snap.get("transport_night"):
+        return snap["transport_night"]
+    t_file = _EXTERNAL / f"transport_night_{city}.json"
+    if t_file.exists():
+        try:
+            return json.loads(t_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+@st.cache_data(ttl=_TTL, show_spinner=False)
+def load_sentiment_stats(city: str) -> dict[str, Any]:
+    snap = _snapshot()
+    if snap.get("sentiment"):
+        return snap["sentiment"]
+    s_file = _EXTERNAL / f"sentiment_{city}.json"
+    if s_file.exists():
+        try:
+            return json.loads(s_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+

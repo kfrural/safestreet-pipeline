@@ -1,0 +1,9 @@
+{
+  "total": 450,
+  "avg_score": -0.342,
+  "labels": {
+    "positivo": 52,
+    "neutro": 128,
+    "negativo": 270
+  }
+}
