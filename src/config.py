@@ -35,19 +35,19 @@ except Exception:
                     value = os.environ[env_key]
                     # simple cast
                     ann = self.__annotations__.get(key)
-                    if ann == int:
+                    if ann is int:
                         try:
                             value = int(value)
                         except Exception:
                             pass
-                    elif ann == float:
+                    elif ann is float:
                         try:
                             value = float(value)
                         except Exception:
                             pass
                     elif hasattr(ann, "__origin__") and ann.__origin__ is Literal:
                         pass
-                    elif ann == Path or getattr(ann, "__name__", "") == "Path":
+                    elif ann is Path or getattr(ann, "__name__", "") == "Path":
                         value = Path(value)
                     setattr(self, key, value)
                     continue
