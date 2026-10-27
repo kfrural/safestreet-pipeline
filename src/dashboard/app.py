@@ -2112,12 +2112,13 @@ def _ensure_data_ready() -> None:
 def main() -> None:
     _ensure_data_ready()
     try:
-        from src.db.connection import engine
+        from src.db.connection import check_connection, engine
         from src.db.models import Base
 
-        Base.metadata.create_all(engine)
+        if check_connection():
+            Base.metadata.create_all(engine)
     except Exception as e:
-        logger.warning("Nao foi possivel criar tabelas: {}", e)
+        logger.warning("Nao foi possivel verificar/criar tabelas no banco: {}", e)
 
     _render_onboarding()
 

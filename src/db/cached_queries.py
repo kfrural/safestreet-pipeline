@@ -14,31 +14,30 @@ from typing import Any
 
 import streamlit as st
 
-from src.db.queries import (
-    get_available_months,
-    get_available_years,
-    get_city_stats,
-    get_correlation_data,
-    get_crime_by_hour,
-    get_crime_by_infra_proximity,
-    get_crime_by_transit_proximity,
-    get_crime_categories,
-    get_crime_category_list,
-    get_crime_locations,
-    get_crime_locations_filtered,
-    get_h3_cells,
-    get_heatmap_hour_weekday,
-    get_heatmap_monthly,
-    get_neighborhood_crime_summary,
-    get_neighborhood_infra_gaps,
-    get_neighborhoods,
-    get_seasonal_monthly,
-    get_temporal_trend,
-    get_temporal_trend_by_category,
-    get_top_natures,
-    get_vulnerability_gaps,
-    get_weekly_cycle,
-)
+# Lazy string references to avoid importing sqlalchemy/psycopg2 at module load
+get_available_months = "get_available_months"
+get_available_years = "get_available_years"
+get_city_stats = "get_city_stats"
+get_correlation_data = "get_correlation_data"
+get_crime_by_hour = "get_crime_by_hour"
+get_crime_by_infra_proximity = "get_crime_by_infra_proximity"
+get_crime_by_transit_proximity = "get_crime_by_transit_proximity"
+get_crime_categories = "get_crime_categories"
+get_crime_category_list = "get_crime_category_list"
+get_crime_locations = "get_crime_locations"
+get_crime_locations_filtered = "get_crime_locations_filtered"
+get_h3_cells = "get_h3_cells"
+get_heatmap_hour_weekday = "get_heatmap_hour_weekday"
+get_heatmap_monthly = "get_heatmap_monthly"
+get_neighborhood_crime_summary = "get_neighborhood_crime_summary"
+get_neighborhood_infra_gaps = "get_neighborhood_infra_gaps"
+get_neighborhoods = "get_neighborhoods"
+get_seasonal_monthly = "get_seasonal_monthly"
+get_temporal_trend = "get_temporal_trend"
+get_temporal_trend_by_category = "get_temporal_trend_by_category"
+get_top_natures = "get_top_natures"
+get_vulnerability_gaps = "get_vulnerability_gaps"
+get_weekly_cycle = "get_weekly_cycle"
 
 _TTL = 300  # 5 minutes
 _ROOT = Path(__file__).resolve().parents[2]
@@ -64,9 +63,17 @@ def _snapshot() -> dict[str, Any]:
     return _SNAPSHOT
 
 
-def _safe(fn, *args, default=None):
+def _safe(fn_or_name: Any, *args: Any, default: Any = None) -> Any:
     try:
-        return fn(*args)
+        if callable(fn_or_name):
+            return fn_or_name(*args)
+        if isinstance(fn_or_name, str):
+            from src.db import queries as _queries_mod
+
+            fn = getattr(_queries_mod, fn_or_name, None)
+            if fn:
+                return fn(*args)
+        return default
     except Exception:
         return default
 
